@@ -218,3 +218,27 @@ def test_missing_repo_raises_instead_of_reporting_ok(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="does not exist"):
         find_usages(tmp_path / "no-such-repo", ["requests"], {"requests": ["requests"]})
+
+
+def test_uses_of_from_imported_names_are_recorded_not_only_the_import(tmp_path):
+    (tmp_path / "enc.py").write_text(
+        "from lib.utils import _parse_header\n"
+        "from lib import validator\n"
+        "\n"
+        "class Cfg:\n"
+        "    @validator('name')\n"
+        "    def check(cls, v):\n"
+        "        return v\n"
+        "\n"
+        "def parse(resp):\n"
+        "    _, params = _parse_header(resp)\n"
+        "    return params\n",
+        encoding="utf-8",
+    )
+    result = find_usages(tmp_path, ["lib"], {"lib": ["lib"]})
+    found = {(u.line, u.kind, u.symbol, u.function) for u in result.usages["lib"]}
+    assert (1, "private-api", "lib.utils._parse_header", "") in found          # the import
+    assert (10, "private-api", "lib.utils._parse_header", "parse") in found    # the call
+    assert (5, "attribute", "lib.validator", "Cfg.check") in found or (5, "attribute", "lib.validator", "Cfg") in found
+    lines = [u.line for u in result.usages["lib"] if u.symbol == "lib.utils._parse_header"]
+    assert lines.count(10) == 1  # not recorded twice

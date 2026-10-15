@@ -235,6 +235,23 @@ class _FileUsageVisitor(ast.NodeVisitor):
 
         self.generic_visit(node)
 
+    def visit_Name(self, node: ast.Name) -> None:
+        # A bare use of a name bound by an import, e.g. a from-imported function, class or decorator.
+        # Roots of attribute chains (req.get) are recorded by visit_Attribute instead.
+        if isinstance(node.ctx, ast.Load) and node.id in self.aliases:
+            parent = self.parent_map.get(id(node))
+            if not (isinstance(parent, ast.Attribute) and parent.value is node):
+                origin_symbol, top_mod = self.aliases[node.id]
+                is_private = any(_is_private_symbol(p) for p in origin_symbol.split("."))
+                for dist in self.module_to_dists.get(top_mod, []):
+                    self._record(
+                        line=node.lineno,
+                        symbol=origin_symbol,
+                        dist=dist,
+                        kind="private-api" if is_private else "attribute",
+                    )
+        self.generic_visit(node)
+
     def _is_assignment_target(self, node: ast.AST) -> bool:
         """Check if node is an assignment, augassign, or delete target."""
         parent = self.parent_map.get(id(node))
