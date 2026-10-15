@@ -382,9 +382,8 @@ def find_usages(
     # Initialize usage lists for every flagged distribution
     usages_by_dist: dict[str, list[Usage]] = {d: [] for d in normalized_flagged}
 
-    if not repo.exists() or not repo.is_dir():
-        notes.append(f"repository directory does not exist: {repo}")
-        return UsageResult(usages=usages_by_dist, notes=notes, status=StageStatus("usage", status=OK))
+    if not repo.is_dir():
+        raise FileNotFoundError(f"repository directory does not exist: {repo}")
 
     log(f"Stage 3: Scanning AST in {repo} for {len(normalized_flagged)} flagged dependencies")
 
