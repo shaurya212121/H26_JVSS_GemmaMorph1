@@ -1,0 +1,2201 @@
+{
+  "generated_at": "2026-10-15T10:39:16+00:00",
+  "repo": "D:\\localhacktober\\_gm\\LinkWatch",
+  "model": {
+    "name": "gemma4:e2b",
+    "backend": "ollama",
+    "base_url": "http://localhost:11434"
+  },
+  "stages": [
+    {
+      "stage": "S1 discover",
+      "status": "ok",
+      "error": null,
+      "skip_reason": null
+    },
+    {
+      "stage": "S2 risk_scan",
+      "status": "ok",
+      "error": null,
+      "skip_reason": null
+    },
+    {
+      "stage": "S3 usage",
+      "status": "ok",
+      "error": null,
+      "skip_reason": null
+    },
+    {
+      "stage": "S4 propose",
+      "status": "ok",
+      "error": null,
+      "skip_reason": null
+    },
+    {
+      "stage": "S5 rehearse",
+      "status": "ok",
+      "error": null,
+      "skip_reason": null
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "appdirs",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 2,
+          "spec": "==1.4.4"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 14,
+          "spec": "==1.4.4"
+        }
+      ]
+    },
+    {
+      "name": "chardet",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 8,
+          "spec": "==5.2.0"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 20,
+          "spec": "==5.2.0"
+        }
+      ]
+    },
+    {
+      "name": "click",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 6,
+          "spec": ">=7"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 18,
+          "spec": ">=7"
+        }
+      ]
+    },
+    {
+      "name": "idna",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 10,
+          "spec": "==2.7"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 22,
+          "spec": "==2.7"
+        }
+      ]
+    },
+    {
+      "name": "jinja2",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 4,
+          "spec": "==2.11.3"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 16,
+          "spec": "==2.11.3"
+        }
+      ]
+    },
+    {
+      "name": "nose",
+      "declared": [
+        {
+          "file": "requirements-dev.txt",
+          "line": 2,
+          "spec": "==1.3.7"
+        }
+      ]
+    },
+    {
+      "name": "pydantic",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 5,
+          "spec": "==1.10.13"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 17,
+          "spec": ">=2"
+        }
+      ]
+    },
+    {
+      "name": "pytest",
+      "declared": [
+        {
+          "file": "requirements-dev.txt",
+          "line": 1,
+          "spec": ""
+        }
+      ]
+    },
+    {
+      "name": "python-dateutil",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 11,
+          "spec": ""
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 23,
+          "spec": ""
+        }
+      ]
+    },
+    {
+      "name": "requests",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 3,
+          "spec": "==2.31.0"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 15,
+          "spec": "==2.31.0"
+        }
+      ]
+    },
+    {
+      "name": "rich",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 12,
+          "spec": ""
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 24,
+          "spec": ""
+        }
+      ]
+    },
+    {
+      "name": "setuptools",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 9,
+          "spec": "==75.8.0"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 21,
+          "spec": "==75.8.0"
+        }
+      ]
+    },
+    {
+      "name": "six",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 7,
+          "spec": ""
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 19,
+          "spec": ""
+        }
+      ]
+    },
+    {
+      "name": "toml",
+      "declared": [
+        {
+          "file": "requirements.txt",
+          "line": 1,
+          "spec": "==0.10.2"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 13,
+          "spec": "==0.10.2"
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "name": "pydantic",
+      "declarations": [
+        {
+          "file": "requirements.txt",
+          "line": 5,
+          "spec": "==1.10.13"
+        },
+        {
+          "file": "pyproject.toml",
+          "line": 17,
+          "spec": ">=2"
+        }
+      ],
+      "detail": "pydantic==1.10.13 (requirements.txt:5) cannot be satisfied together with pydantic>=2 (pyproject.toml:17)",
+      "tag": "VERIFIED"
+    }
+  ],
+  "signals": [
+    {
+      "kind": "stale-release",
+      "detail": "latest release 1.4.4 was uploaded 2020-05-11 (6.4 years ago)",
+      "source": "pypi:appdirs",
+      "tag": "OBSERVED",
+      "dependency": "appdirs"
+    },
+    {
+      "kind": "outdated-classifiers",
+      "detail": "classifiers list Python 3.8 at most; running 3.12",
+      "source": "pypi:appdirs",
+      "tag": "OBSERVED",
+      "dependency": "appdirs"
+    },
+    {
+      "kind": "version-lag",
+      "detail": "pinned 5.2.0; latest on PyPI is 7.6.0 (major version behind)",
+      "source": "pypi:chardet",
+      "tag": "OBSERVED",
+      "dependency": "chardet"
+    },
+    {
+      "kind": "version-lag",
+      "detail": "pinned 2.7; latest on PyPI is 3.20 (major version behind)",
+      "source": "pypi:idna",
+      "tag": "OBSERVED",
+      "dependency": "idna"
+    },
+    {
+      "kind": "version-lag",
+      "detail": "pinned 2.11.3; latest on PyPI is 3.1.6 (major version behind)",
+      "source": "pypi:jinja2",
+      "tag": "OBSERVED",
+      "dependency": "jinja2"
+    },
+    {
+      "kind": "stale-release",
+      "detail": "latest release 1.3.7 was uploaded 2015-06-02 (11.4 years ago)",
+      "source": "pypi:nose",
+      "tag": "OBSERVED",
+      "dependency": "nose"
+    },
+    {
+      "kind": "version-lag",
+      "detail": "pinned 1.10.13; latest on PyPI is 2.14.1 (major version behind)",
+      "source": "pypi:pydantic",
+      "tag": "OBSERVED",
+      "dependency": "pydantic"
+    },
+    {
+      "kind": "stale-release",
+      "detail": "latest release 2.9.0.post0 was uploaded 2024-03-01 (2.6 years ago)",
+      "source": "pypi:python-dateutil",
+      "tag": "OBSERVED",
+      "dependency": "python-dateutil"
+    },
+    {
+      "kind": "version-lag",
+      "detail": "pinned 75.8.0; latest on PyPI is 84.0.0 (major version behind)",
+      "source": "pypi:setuptools",
+      "tag": "OBSERVED",
+      "dependency": "setuptools"
+    },
+    {
+      "kind": "stale-release",
+      "detail": "latest release 0.10.2 was uploaded 2020-11-01 (6.0 years ago)",
+      "source": "pypi:toml",
+      "tag": "OBSERVED",
+      "dependency": "toml"
+    },
+    {
+      "kind": "outdated-classifiers",
+      "detail": "classifiers list Python 3.9 at most; running 3.12",
+      "source": "pypi:toml",
+      "tag": "OBSERVED",
+      "dependency": "toml"
+    },
+    {
+      "kind": "test-warning",
+      "detail": "linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources",
+      "source": "pytest:warnings:linkwatch\\resources.py:1",
+      "tag": "OBSERVED",
+      "dependency": "setuptools"
+    },
+    {
+      "kind": "test-failure",
+      "detail": "ImportError: cannot import name 'soft_unicode' from 'markupsafe' (<venv>\\Lib\\site-packages\\markupsafe\\__init__.py)",
+      "source": "pytest:tests.test_report::test_report_renders_all_sites",
+      "tag": "OBSERVED",
+      "dependency": "jinja2"
+    },
+    {
+      "kind": "undeclared-import",
+      "detail": "imported as 'certifi' in linkwatch/checker.py but 'certifi' is not declared",
+      "source": "ast:linkwatch/checker.py",
+      "tag": "VERIFIED",
+      "dependency": "certifi"
+    },
+    {
+      "kind": "private-api",
+      "detail": "requests.utils._parse_content_type_header used in module scope",
+      "source": "ast:linkwatch/encoding.py:5",
+      "tag": "VERIFIED",
+      "dependency": "requests"
+    },
+    {
+      "kind": "private-api",
+      "detail": "requests.utils._parse_content_type_header used in detect_encoding",
+      "source": "ast:linkwatch/encoding.py:11",
+      "tag": "VERIFIED",
+      "dependency": "requests"
+    },
+    {
+      "kind": "monkeypatch",
+      "detail": "requests.Session.request used in module scope",
+      "source": "ast:linkwatch/http_patch.py:14",
+      "tag": "VERIFIED",
+      "dependency": "requests"
+    }
+  ],
+  "usages": {
+    "appdirs": [
+      {
+        "file": "linkwatch/cache.py",
+        "line": 4,
+        "symbol": "appdirs.user_cache_dir",
+        "snippet": "import os\n\nfrom appdirs import user_cache_dir\n\nRESULTS_FILE = \"results.json\"\n",
+        "dependency": "appdirs",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cache.py",
+        "line": 10,
+        "symbol": "appdirs.user_cache_dir",
+        "snippet": "\ndef cache_dir():\n    path = os.environ.get(\"LINKWATCH_CACHE_DIR\") or user_cache_dir(\"linkwatch\")\n    os.makedirs(path, exist_ok=True)\n    return path\n",
+        "dependency": "appdirs",
+        "kind": "attribute",
+        "function": "cache_dir",
+        "tag": "VERIFIED"
+      }
+    ],
+    "certifi": [
+      {
+        "file": "linkwatch/checker.py",
+        "line": 4,
+        "symbol": "certifi",
+        "snippet": "from datetime import datetime, timezone\n\nimport certifi\nimport requests\nfrom requests import Session as S\n",
+        "dependency": "certifi",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/checker.py",
+        "line": 15,
+        "symbol": "certifi.where",
+        "snippet": "    session = S()\n    try:\n        return session.get(url, verify=certifi.where())\n    finally:\n        session.close()\n",
+        "dependency": "certifi",
+        "kind": "attribute",
+        "function": "fetch",
+        "tag": "VERIFIED"
+      }
+    ],
+    "chardet": [
+      {
+        "file": "linkwatch/encoding.py",
+        "line": 4,
+        "symbol": "chardet",
+        "snippet": "import re\n\nimport chardet\nfrom requests.utils import _parse_content_type_header\n\n",
+        "dependency": "chardet",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/encoding.py",
+        "line": 15,
+        "symbol": "chardet.detect",
+        "snippet": "    if charset and charset is not True:\n        return charset\n    guess = chardet.detect(resp.content)\n    return guess[\"encoding\"] or \"utf-8\"\n\n",
+        "dependency": "chardet",
+        "kind": "attribute",
+        "function": "detect_encoding",
+        "tag": "VERIFIED"
+      }
+    ],
+    "click": [
+      {
+        "file": "linkwatch/cli.py",
+        "line": 1,
+        "symbol": "click",
+        "snippet": "import click\nfrom rich.console import Console\nfrom rich.live import Live\n",
+        "dependency": "click",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 27,
+        "symbol": "click.group",
+        "snippet": "\n\n@click.group()\n@click.version_option(__version__, prog_name=\"linkwatch\")\ndef cli():\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "cli",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 28,
+        "symbol": "click.version_option",
+        "snippet": "\n@click.group()\n@click.version_option(__version__, prog_name=\"linkwatch\")\ndef cli():\n    \"\"\"Check your sites and build a small status page.\"\"\"\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "cli",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 34,
+        "symbol": "click.option",
+        "snippet": "\n@cli.command()\n@click.option(\"--config\", \"config_path\", default=\"sites.toml\", show_default=True,\n              help=\"Path to the sites file.\")\ndef check(config_path):\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "check",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 51,
+        "symbol": "click.option",
+        "snippet": "\n@cli.command()\n@click.option(\"--output\", \"-o\", default=\"status.html\", show_default=True,\n              help=\"Where to write the HTML page.\")\n@click.option(\"--title\", default=\"linkwatch\", show_default=True)\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "report",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 53,
+        "symbol": "click.option",
+        "snippet": "@click.option(\"--output\", \"-o\", default=\"status.html\", show_default=True,\n              help=\"Where to write the HTML page.\")\n@click.option(\"--title\", default=\"linkwatch\", show_default=True)\ndef report(output, title):\n    \"\"\"Render the cached results to an HTML page.\"\"\"\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "report",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 60,
+        "symbol": "click.ClickException",
+        "snippet": "    results = cache.load_results()\n    if not results:\n        raise click.ClickException(\"No cached results, run 'linkwatch check' first.\")\n    path = render_report(results, output=output, title=title)\n    click.echo(\"Wrote %s\" % path)\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "report",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 62,
+        "symbol": "click.echo",
+        "snippet": "        raise click.ClickException(\"No cached results, run 'linkwatch check' first.\")\n    path = render_report(results, output=output, title=title)\n    click.echo(\"Wrote %s\" % path)\n\n\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "report",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 68,
+        "symbol": "click.echo",
+        "snippet": "def info():\n    \"\"\"Show where linkwatch keeps its files.\"\"\"\n    click.echo(\"Templates: %s\" % resources.template_dir())\n    click.echo(\"Cache:     %s\" % cache.cache_file())\n\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "info",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 69,
+        "symbol": "click.echo",
+        "snippet": "    \"\"\"Show where linkwatch keeps its files.\"\"\"\n    click.echo(\"Templates: %s\" % resources.template_dir())\n    click.echo(\"Cache:     %s\" % cache.cache_file())\n\n\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "info",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "tests/test_report.py",
+        "line": 1,
+        "symbol": "click.testing.CliRunner",
+        "snippet": "from click.testing import CliRunner\n\nfrom linkwatch import cache\n",
+        "dependency": "click",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "tests/test_report.py",
+        "line": 20,
+        "symbol": "click.testing.CliRunner",
+        "snippet": "    cache.save_results(RESULTS)\n    output = tmp_path / \"status.html\"\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n    assert result.exit_code == 0\n    page = output.read_text(encoding=\"utf-8\")\n",
+        "dependency": "click",
+        "kind": "attribute",
+        "function": "test_report_renders_all_sites",
+        "tag": "VERIFIED"
+      }
+    ],
+    "idna": [],
+    "jinja2": [
+      {
+        "file": "linkwatch/report.py",
+        "line": 3,
+        "symbol": "jinja2.Environment",
+        "snippet": "from datetime import datetime\n\nfrom jinja2 import Environment, FileSystemLoader, select_autoescape\n\nfrom .resources import TEMPLATE_NAME, template_dir\n",
+        "dependency": "jinja2",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/report.py",
+        "line": 3,
+        "symbol": "jinja2.FileSystemLoader",
+        "snippet": "from datetime import datetime\n\nfrom jinja2 import Environment, FileSystemLoader, select_autoescape\n\nfrom .resources import TEMPLATE_NAME, template_dir\n",
+        "dependency": "jinja2",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/report.py",
+        "line": 3,
+        "symbol": "jinja2.select_autoescape",
+        "snippet": "from datetime import datetime\n\nfrom jinja2 import Environment, FileSystemLoader, select_autoescape\n\nfrom .resources import TEMPLATE_NAME, template_dir\n",
+        "dependency": "jinja2",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/report.py",
+        "line": 9,
+        "symbol": "jinja2.Environment",
+        "snippet": "\ndef make_env():\n    return Environment(\n        loader=FileSystemLoader(template_dir()),\n        autoescape=select_autoescape([\"html\", \"j2\"]),\n",
+        "dependency": "jinja2",
+        "kind": "attribute",
+        "function": "make_env",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/report.py",
+        "line": 10,
+        "symbol": "jinja2.FileSystemLoader",
+        "snippet": "def make_env():\n    return Environment(\n        loader=FileSystemLoader(template_dir()),\n        autoescape=select_autoescape([\"html\", \"j2\"]),\n    )\n",
+        "dependency": "jinja2",
+        "kind": "attribute",
+        "function": "make_env",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/report.py",
+        "line": 11,
+        "symbol": "jinja2.select_autoescape",
+        "snippet": "    return Environment(\n        loader=FileSystemLoader(template_dir()),\n        autoescape=select_autoescape([\"html\", \"j2\"]),\n    )\n\n",
+        "dependency": "jinja2",
+        "kind": "attribute",
+        "function": "make_env",
+        "tag": "VERIFIED"
+      }
+    ],
+    "nose": [],
+    "pydantic": [
+      {
+        "file": "linkwatch/config.py",
+        "line": 4,
+        "symbol": "pydantic.BaseModel",
+        "snippet": "\nimport toml\nfrom pydantic import BaseModel, validator\n\n\n",
+        "dependency": "pydantic",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/config.py",
+        "line": 4,
+        "symbol": "pydantic.validator",
+        "snippet": "\nimport toml\nfrom pydantic import BaseModel, validator\n\n\n",
+        "dependency": "pydantic",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/config.py",
+        "line": 7,
+        "symbol": "pydantic.BaseModel",
+        "snippet": "\n\nclass Site(BaseModel):\n    name: str\n    url: str\n",
+        "dependency": "pydantic",
+        "kind": "attribute",
+        "function": "Site",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/config.py",
+        "line": 14,
+        "symbol": "pydantic.validator",
+        "snippet": "        anystr_strip_whitespace = True\n\n    @validator(\"name\")\n    def name_not_empty(cls, value):\n        if not value:\n",
+        "dependency": "pydantic",
+        "kind": "attribute",
+        "function": "Site.name_not_empty",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/config.py",
+        "line": 20,
+        "symbol": "pydantic.validator",
+        "snippet": "        return value\n\n    @validator(\"url\")\n    def url_has_scheme(cls, value):\n        if not value.startswith((\"http://\", \"https://\")):\n",
+        "dependency": "pydantic",
+        "kind": "attribute",
+        "function": "Site.url_has_scheme",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/config.py",
+        "line": 27,
+        "symbol": "pydantic.BaseModel",
+        "snippet": "\n\nclass Settings(BaseModel):\n    title: str = \"linkwatch\"\n    output: str = \"status.html\"\n",
+        "dependency": "pydantic",
+        "kind": "attribute",
+        "function": "Settings",
+        "tag": "VERIFIED"
+      }
+    ],
+    "pytest": [
+      {
+        "file": "tests/conftest.py",
+        "line": 6,
+        "symbol": "pytest",
+        "snippet": "from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n\nimport pytest\n\nimport linkwatch.cli  # noqa: F401\n",
+        "dependency": "pytest",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "tests/conftest.py",
+        "line": 60,
+        "symbol": "pytest.fixture",
+        "snippet": "\n\n@pytest.fixture(scope=\"session\")\ndef server():\n    httpd = ThreadingHTTPServer((\"127.0.0.1\", 0), Handler)\n",
+        "dependency": "pytest",
+        "kind": "attribute",
+        "function": "server",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "tests/conftest.py",
+        "line": 70,
+        "symbol": "pytest.fixture",
+        "snippet": "\n\n@pytest.fixture\ndef closed_port():\n    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n",
+        "dependency": "pytest",
+        "kind": "attribute",
+        "function": "closed_port",
+        "tag": "VERIFIED"
+      }
+    ],
+    "python-dateutil": [
+      {
+        "file": "linkwatch/dates.py",
+        "line": 1,
+        "symbol": "dateutil.parser",
+        "snippet": "from dateutil import parser\n\n\n",
+        "dependency": "python-dateutil",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/dates.py",
+        "line": 8,
+        "symbol": "dateutil.parser.parse",
+        "snippet": "        return None\n    try:\n        return parser.parse(value)\n    except (ValueError, OverflowError):\n        return None\n",
+        "dependency": "python-dateutil",
+        "kind": "attribute",
+        "function": "parse_last_modified",
+        "tag": "VERIFIED"
+      }
+    ],
+    "requests": [
+      {
+        "file": "linkwatch/checker.py",
+        "line": 5,
+        "symbol": "requests",
+        "snippet": "\nimport certifi\nimport requests\nfrom requests import Session as S\n\n",
+        "dependency": "requests",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/checker.py",
+        "line": 6,
+        "symbol": "requests.Session",
+        "snippet": "import certifi\nimport requests\nfrom requests import Session as S\n\nfrom .dates import parse_last_modified\n",
+        "dependency": "requests",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/checker.py",
+        "line": 13,
+        "symbol": "requests.Session",
+        "snippet": "\ndef fetch(url):\n    session = S()\n    try:\n        return session.get(url, verify=certifi.where())\n",
+        "dependency": "requests",
+        "kind": "attribute",
+        "function": "fetch",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/checker.py",
+        "line": 35,
+        "symbol": "requests.exceptions.ConnectionError",
+        "snippet": "    try:\n        resp = fetch(site.url)\n    except requests.exceptions.ConnectionError:\n        result[\"reason\"] = \"connection error\"\n        return result\n",
+        "dependency": "requests",
+        "kind": "attribute",
+        "function": "check_site",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/checker.py",
+        "line": 38,
+        "symbol": "requests.exceptions.Timeout",
+        "snippet": "        result[\"reason\"] = \"connection error\"\n        return result\n    except requests.exceptions.Timeout:\n        result[\"reason\"] = \"timed out\"\n        return result\n",
+        "dependency": "requests",
+        "kind": "attribute",
+        "function": "check_site",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/encoding.py",
+        "line": 5,
+        "symbol": "requests.utils._parse_content_type_header",
+        "snippet": "\nimport chardet\nfrom requests.utils import _parse_content_type_header\n\nTITLE_RE = re.compile(r\"<title[^>]*>(.*?)</title>\", re.IGNORECASE | re.DOTALL)\n",
+        "dependency": "requests",
+        "kind": "private-api",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/encoding.py",
+        "line": 11,
+        "symbol": "requests.utils._parse_content_type_header",
+        "snippet": "\ndef detect_encoding(resp):\n    _, params = _parse_content_type_header(resp.headers.get(\"Content-Type\", \"\"))\n    charset = params.get(\"charset\")\n    if charset and charset is not True:\n",
+        "dependency": "requests",
+        "kind": "private-api",
+        "function": "detect_encoding",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/http_patch.py",
+        "line": 1,
+        "symbol": "requests",
+        "snippet": "import requests\n\nUSER_AGENT = \"linkwatch/1.0\"\n",
+        "dependency": "requests",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/http_patch.py",
+        "line": 5,
+        "symbol": "requests.Session.request",
+        "snippet": "USER_AGENT = \"linkwatch/1.0\"\n\n_original_request = requests.Session.request\n\n\n",
+        "dependency": "requests",
+        "kind": "attribute",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/http_patch.py",
+        "line": 14,
+        "symbol": "requests.Session.request",
+        "snippet": "\n\nrequests.Session.request = _request\n",
+        "dependency": "requests",
+        "kind": "monkeypatch",
+        "function": "",
+        "tag": "VERIFIED"
+      }
+    ],
+    "rich": [
+      {
+        "file": "linkwatch/cli.py",
+        "line": 2,
+        "symbol": "rich.console.Console",
+        "snippet": "import click\nfrom rich.console import Console\nfrom rich.live import Live\nfrom rich.table import Table\n",
+        "dependency": "rich",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 3,
+        "symbol": "rich.live.Live",
+        "snippet": "import click\nfrom rich.console import Console\nfrom rich.live import Live\nfrom rich.table import Table\n\n",
+        "dependency": "rich",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 4,
+        "symbol": "rich.table.Table",
+        "snippet": "from rich.console import Console\nfrom rich.live import Live\nfrom rich.table import Table\n\nfrom . import __version__, cache, checker, config, resources\n",
+        "dependency": "rich",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 9,
+        "symbol": "rich.console.Console",
+        "snippet": "from . import http_patch  # noqa: F401\n\nconsole = Console()\n\n\n",
+        "dependency": "rich",
+        "kind": "attribute",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 13,
+        "symbol": "rich.table.Table",
+        "snippet": "\ndef build_table(title, results):\n    table = Table(title=title)\n    table.add_column(\"Site\", style=\"bold\")\n    table.add_column(\"Status\")\n",
+        "dependency": "rich",
+        "kind": "attribute",
+        "function": "build_table",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/cli.py",
+        "line": 40,
+        "symbol": "rich.live.Live",
+        "snippet": "    settings = config.load_settings(config_path)\n    results = []\n    with Live(build_table(settings.title, results), console=console,\n              refresh_per_second=4) as live:\n        for result in checker.check_all(settings.sites):\n",
+        "dependency": "rich",
+        "kind": "attribute",
+        "function": "check",
+        "tag": "VERIFIED"
+      }
+    ],
+    "setuptools": [
+      {
+        "file": "linkwatch/resources.py",
+        "line": 1,
+        "symbol": "pkg_resources",
+        "snippet": "import pkg_resources\n\nTEMPLATE_NAME = \"status.html.j2\"\n",
+        "dependency": "setuptools",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/resources.py",
+        "line": 7,
+        "symbol": "pkg_resources.resource_filename",
+        "snippet": "\ndef template_dir():\n    return pkg_resources.resource_filename(\"linkwatch\", \"templates\")\n",
+        "dependency": "setuptools",
+        "kind": "attribute",
+        "function": "template_dir",
+        "tag": "VERIFIED"
+      }
+    ],
+    "six": [],
+    "toml": [
+      {
+        "file": "linkwatch/config.py",
+        "line": 3,
+        "symbol": "toml",
+        "snippet": "from typing import List\n\nimport toml\nfrom pydantic import BaseModel, validator\n\n",
+        "dependency": "toml",
+        "kind": "import",
+        "function": "",
+        "tag": "VERIFIED"
+      },
+      {
+        "file": "linkwatch/config.py",
+        "line": 37,
+        "symbol": "toml.load",
+        "snippet": "\ndef load_settings(path=\"sites.toml\"):\n    data = toml.load(path)\n    return Settings(**data)\n",
+        "dependency": "toml",
+        "kind": "attribute",
+        "function": "load_settings",
+        "tag": "VERIFIED"
+      }
+    ]
+  },
+  "proposals": [
+    {
+      "dependency": "appdirs",
+      "replacement": null,
+      "edits": [
+        {
+          "file": "linkwatch/cache.py",
+          "old_text": "from appdirs import user_cache_dir",
+          "new_text": ""
+        },
+        {
+          "file": "linkwatch/cache.py",
+          "old_text": "path = os.environ.get(\"LINKWATCH_CACHE_DIR\") or user_cache_dir(\"linkwatch\")",
+          "new_text": "path = os.environ.get(\"LINKWATCH_CACHE_DIR\")"
+        }
+      ],
+      "requirements_change": {
+        "remove": [
+          "appdirs==1.4.4"
+        ],
+        "add": []
+      },
+      "suggested_tests": [
+        "Tests verifying that the application runs successfully without the appdirs dependency, specifically checking cache directory creation logic."
+      ],
+      "expected_gaps": [
+        "The functionality provided by `appdirs.user_cache_dir` is removed, and the logic for determining the cache directory must be updated to use an alternative method (e.g., standard library path manipulation or a different package).",
+        "The exact behavior of the original cache directory determination logic is not preserved."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency is severely outdated, showing classifiers only up to Python 3.8, which is incompatible with the running Python 3.12 environment.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "unproven",
+      "verdict_reasons": [
+        "edit not executed: linkwatch/cache.py:4 (a deletion has no executable lines to run)"
+      ]
+    },
+    {
+      "dependency": "certifi",
+      "replacement": "certifi",
+      "edits": [],
+      "requirements_change": {
+        "remove": [],
+        "add": [
+          "certifi"
+        ]
+      },
+      "suggested_tests": [
+        "Tests verifying that network requests using session.get() succeed when SSL verification is enabled via certifi.where()"
+      ],
+      "expected_gaps": [
+        "The specific version of 'certifi' required by the application is not specified, which might lead to compatibility issues if the installed version differs significantly from what is expected."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency 'certifi' is required to provide the necessary trusted certificates for SSL verification when using the 'requests' library.",
+      "dropped_edits": [
+        {
+          "edit": {
+            "file": "linkwatch/checker.py",
+            "old_text": "from datetime import datetime, timezone\n\nimport certifi\nimport requests\nfrom requests import Session as S",
+            "new_text": "from datetime import datetime, timezone\n\nimport certifi\nimport requests\nfrom requests import Session as S"
+          },
+          "reason": "old_text and new_text are identical"
+        }
+      ],
+      "error": null,
+      "verdict": "verified",
+      "verdict_reasons": [
+        "all baseline tests still pass; 0 edit(s) executed by the tests"
+      ]
+    },
+    {
+      "dependency": "chardet",
+      "replacement": "chardet",
+      "edits": [],
+      "requirements_change": {
+        "remove": [
+          "chardet==5.2.0"
+        ],
+        "add": [
+          "chardet>=7.6.0"
+        ]
+      },
+      "suggested_tests": [
+        "Tests covering content type detection and encoding guessing to ensure functionality remains correct after upgrading chardet."
+      ],
+      "expected_gaps": [
+        "Potential API changes between chardet versions 5.x and 7.x might introduce breaking changes to the usage of chardet.detect() that require code adjustments."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency is lagging significantly behind the latest version (7.6.0), which poses a security and feature risk. Upgrading to the latest version mitigates this version-lag.",
+      "dropped_edits": [
+        {
+          "edit": {
+            "file": "linkwatch/encoding.py",
+            "old_text": "import chardet",
+            "new_text": "import chardet"
+          },
+          "reason": "old_text and new_text are identical"
+        },
+        {
+          "edit": {
+            "file": "linkwatch/encoding.py",
+            "old_text": "guess = chardet.detect(resp.content)",
+            "new_text": "guess = chardet.detect(resp.content)"
+          },
+          "reason": "old_text and new_text are identical"
+        }
+      ],
+      "error": null,
+      "verdict": "verified",
+      "verdict_reasons": [
+        "all baseline tests still pass; 0 edit(s) executed by the tests"
+      ]
+    },
+    {
+      "dependency": "idna",
+      "replacement": "idna",
+      "edits": [
+        {
+          "file": "requirements.txt",
+          "old_text": "idna==2.7",
+          "new_text": "idna>=3.20"
+        },
+        {
+          "file": "pyproject.toml",
+          "old_text": "idna==2.7",
+          "new_text": "idna>=3.20"
+        }
+      ],
+      "requirements_change": {
+        "remove": [
+          "idna==2.7"
+        ],
+        "add": [
+          "idna>=3.20"
+        ]
+      },
+      "suggested_tests": [
+        "Run existing tests to ensure no regressions, as no usages were found in the repository."
+      ],
+      "expected_gaps": [
+        "Since no usages were found, there is no functional verification possible. Upgrading to a major version (2.x to 3.x) might introduce breaking API changes that are not caught by existing tests."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency is pinned to version 2.7, which is significantly behind the latest release on PyPI (3.20). Upgrading to the latest version mitigates the version-lag risk.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "unproven",
+      "verdict_reasons": [
+        "edit not executed: requirements.txt:10 (the file was never imported by the tests)",
+        "edit not executed: pyproject.toml:22 (the file was never imported by the tests)"
+      ]
+    },
+    {
+      "dependency": "jinja2",
+      "replacement": "jinja2",
+      "edits": [],
+      "requirements_change": {
+        "remove": [
+          "jinja2==2.11.3"
+        ],
+        "add": [
+          "jinja2>=3.0.0"
+        ]
+      },
+      "suggested_tests": [
+        "pytest tests.test_report_renders_all_sites"
+      ],
+      "expected_gaps": [
+        "Potential for breaking changes between Jinja2 2.x and 3.x versions that were not caught by the existing test suite."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency is significantly version-lagged (2.11.3 vs latest 3.1.6), and the test failure suggests compatibility issues, likely related to internal changes between major versions.",
+      "dropped_edits": [
+        {
+          "edit": {
+            "file": "linkwatch/report.py",
+            "old_text": "from jinja2 import Environment, FileSystemLoader, select_autoescape",
+            "new_text": "from jinja2 import Environment, FileSystemLoader, select_autoescape"
+          },
+          "reason": "old_text and new_text are identical"
+        },
+        {
+          "edit": {
+            "file": "linkwatch/report.py",
+            "old_text": "from jinja2 import Environment, FileSystemLoader, select_autoescape",
+            "new_text": "from jinja2 import Environment, FileSystemLoader, select_autoescape"
+          },
+          "reason": "old_text and new_text are identical"
+        }
+      ],
+      "error": null,
+      "verdict": "verified",
+      "verdict_reasons": [
+        "all baseline tests still pass; 0 edit(s) executed by the tests"
+      ]
+    },
+    {
+      "dependency": "nose",
+      "replacement": null,
+      "edits": [],
+      "requirements_change": {
+        "remove": [
+          "nose==1.3.7"
+        ],
+        "add": []
+      },
+      "suggested_tests": [],
+      "expected_gaps": [
+        "The repository might rely on 'nose' for testing functionality that is not visible in the provided evidence."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency 'nose' is stale (last updated 2015) and has no usages found in the repository, making it safe to remove.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "verified",
+      "verdict_reasons": [
+        "all baseline tests still pass; 0 edit(s) executed by the tests"
+      ]
+    },
+    {
+      "dependency": "pydantic",
+      "replacement": "pydantic",
+      "edits": [
+        {
+          "file": "linkwatch/config.py",
+          "old_text": "from pydantic import BaseModel, validator",
+          "new_text": "from pydantic import BaseModel"
+        }
+      ],
+      "requirements_change": {
+        "remove": [
+          "pydantic==1.10.13"
+        ],
+        "add": [
+          "pydantic>=2"
+        ]
+      },
+      "suggested_tests": [
+        "Tests covering Site model validation (name_not_empty, url_has_scheme) to ensure they function correctly with Pydantic v2 syntax.",
+        "Tests ensuring Settings model validation works after the dependency upgrade."
+      ],
+      "expected_gaps": [
+        "Potential breaking changes between Pydantic v1 and v2 regarding the usage of `@validator` decorators, which may require code adjustments beyond the import statement.",
+        "Verification that the existing validation logic (`name_not_empty`, `url_has_scheme`) remains functional in the upgraded version."
+      ],
+      "tag": "REFUTED",
+      "rationale": "The current version 1.10.13 is significantly behind the latest release (2.14.1), and the declared requirement is `>=2`. Upgrading Pydantic will resolve the version lag and ensure compatibility with modern Python environments.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "refuted",
+      "verdict_reasons": [
+        "new test failure: tests.test_cache::test_cache_round_trip",
+        "new test failure: tests.test_checker::test_ok_is_up",
+        "new test failure: tests.test_checker::test_missing_is_down",
+        "new test failure: tests.test_checker::test_redirect_is_up",
+        "new test failure: tests.test_checker::test_slow_is_up",
+        "new test failure: tests.test_checker::test_closed_port_is_down",
+        "new test failure: tests.test_checker::test_latin1_title",
+        "new test failure: tests.test_checker::test_user_agent",
+        "new test failure: tests.test_config::test_sites_file_loads"
+      ]
+    },
+    {
+      "dependency": "python-dateutil",
+      "replacement": null,
+      "edits": [],
+      "requirements_change": {
+        "remove": [
+          "python-dateutil"
+        ],
+        "add": [
+          "python-dateutil"
+        ]
+      },
+      "suggested_tests": [
+        "Tests covering date parsing functionality to ensure that the behavior of parser.parse remains consistent after updating python-dateutil."
+      ],
+      "expected_gaps": [
+        "The proposal does not include an explicit version constraint for python-dateutil, relying on the environment to install the latest version. If the latest version introduces breaking changes to the parsing API, the existing code in linkwatch/dates.py might require modification."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The dependency python-dateutil is using a stale release (2.9.0.post0 from 2.6 years ago), posing a security and maintenance risk. The repository should update this dependency to the latest version.",
+      "dropped_edits": [
+        {
+          "edit": {
+            "file": "linkwatch/dates.py",
+            "old_text": "from dateutil import parser",
+            "new_text": "from dateutil import parser"
+          },
+          "reason": "old_text and new_text are identical"
+        }
+      ],
+      "error": null,
+      "verdict": "verified",
+      "verdict_reasons": [
+        "all baseline tests still pass; 0 edit(s) executed by the tests"
+      ]
+    },
+    {
+      "dependency": "requests",
+      "replacement": null,
+      "edits": [],
+      "requirements_change": {
+        "remove": [
+          "requests==2.31.0"
+        ],
+        "add": []
+      },
+      "suggested_tests": [
+        "Tests covering `linkwatch/checker.py` to ensure `session.get` and exception handling still function correctly.",
+        "Tests covering `linkwatch/encoding.py` to ensure `detect_encoding` correctly uses `_parse_content_type_header`."
+      ],
+      "expected_gaps": [
+        "The proposal does not address the long-term maintenance burden associated with relying on internal, private APIs of the 'requests' library.",
+        "The proposal does not address the risk associated with the monkeypatching in `linkwatch/http_patch.py`."
+      ],
+      "tag": "REFUTED",
+      "rationale": "The dependency 'requests' is deeply integrated into the codebase, utilizing specific utilities like `requests.utils._parse_content_type_header` and monkeypatching `requests.Session.request`, making replacement with an alternative library or standard library module highly complex.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "refuted",
+      "verdict_reasons": [
+        "new test failure: tests.test_cache::test_cache_round_trip",
+        "new test failure: tests.test_checker::test_ok_is_up",
+        "new test failure: tests.test_checker::test_missing_is_down",
+        "new test failure: tests.test_checker::test_redirect_is_up",
+        "new test failure: tests.test_checker::test_slow_is_up",
+        "new test failure: tests.test_checker::test_closed_port_is_down",
+        "new test failure: tests.test_checker::test_latin1_title",
+        "new test failure: tests.test_checker::test_user_agent",
+        "new test failure: tests.test_config::test_sites_file_loads"
+      ]
+    },
+    {
+      "dependency": "setuptools",
+      "replacement": "importlib.resources",
+      "edits": [
+        {
+          "file": "linkwatch/resources.py",
+          "old_text": "import pkg_resources",
+          "new_text": "import importlib.resources"
+        },
+        {
+          "file": "linkwatch/resources.py",
+          "old_text": "def template_dir():\n    return pkg_resources.resource_filename(\"linkwatch\", \"templates\")",
+          "new_text": "def template_dir():\n    return importlib.resources.files(\"linkwatch\").joinpath(\"templates\")"
+        }
+      ],
+      "requirements_change": {
+        "remove": [
+          "setuptools==75.8.0"
+        ],
+        "add": [
+          "setuptools>=84.0.0"
+        ]
+      },
+      "suggested_tests": [
+        "Tests verifying that template_dir() correctly returns the path to the 'templates' directory contents using importlib.resources."
+      ],
+      "expected_gaps": [
+        "The migration might introduce new dependency requirements if `importlib.resources` requires a specific version of `setuptools` or other related packages.",
+        "Behavior differences might exist between `pkg_resources.resource_filename` and `importlib.resources.files().joinpath()` regarding how resources are resolved or accessed."
+      ],
+      "tag": "AI-PROPOSED",
+      "rationale": "The use of `pkg_resources` is deprecated, as indicated by the warning, and should be replaced with the modern `importlib.resources` API.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "verified",
+      "verdict_reasons": [
+        "all baseline tests still pass; 2 edit(s) executed by the tests"
+      ]
+    },
+    {
+      "dependency": "toml",
+      "replacement": "stdlib:tomllib",
+      "edits": [
+        {
+          "file": "linkwatch/config.py",
+          "old_text": "import toml",
+          "new_text": "import tomllib"
+        },
+        {
+          "file": "linkwatch/config.py",
+          "old_text": "data = toml.load(path)",
+          "new_text": "data = tomllib.load(path)"
+        }
+      ],
+      "requirements_change": {
+        "remove": [
+          "toml==0.10.2"
+        ],
+        "add": []
+      },
+      "suggested_tests": [
+        "Test loading settings from a valid TOML file using tomllib.load() and ensuring the resulting data structure is correctly passed to Settings(**data)."
+      ],
+      "expected_gaps": [
+        "Behavior differences between the deprecated 'toml.load' function and the standard library 'tomllib.load' function, specifically regarding error handling or supported TOML features."
+      ],
+      "tag": "REFUTED",
+      "rationale": "The dependency is severely outdated and incompatible with Python 3.12. Migrating to the standard library module `tomllib` resolves the stale release and outdated classifier issues.",
+      "dropped_edits": [],
+      "error": null,
+      "verdict": "refuted",
+      "verdict_reasons": [
+        "new test failure: tests.test_config::test_sites_file_loads"
+      ]
+    }
+  ],
+  "baseline": {
+    "label": "baseline",
+    "command": [
+      "D:\\localhacktober\\_gm\\tmp\\gemmamorph-s2-9cs8vg8w\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "-p",
+      "no:cacheprovider",
+      "-W",
+      "default",
+      "--tb=short",
+      "-q",
+      "--junitxml=D:\\localhacktober\\_gm\\tmp\\gemmamorph-s2-9cs8vg8w\\scratch\\baseline-junit.xml"
+    ],
+    "exit_code": 1,
+    "passed": 9,
+    "failed": 1,
+    "errors": 0,
+    "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\gemmamorph-s2-9cs8vg8w\\venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\gemmamorph-s2-9cs8vg8w\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 1 warning in 9.45s\n",
+    "timed_out": false,
+    "skipped": 0,
+    "tests": {
+      "tests.test_cache::test_cache_round_trip": "passed",
+      "tests.test_checker::test_ok_is_up": "passed",
+      "tests.test_checker::test_missing_is_down": "passed",
+      "tests.test_checker::test_redirect_is_up": "passed",
+      "tests.test_checker::test_slow_is_up": "passed",
+      "tests.test_checker::test_closed_port_is_down": "passed",
+      "tests.test_checker::test_latin1_title": "passed",
+      "tests.test_checker::test_user_agent": "passed",
+      "tests.test_config::test_sites_file_loads": "passed",
+      "tests.test_report::test_report_renders_all_sites": "failed"
+    },
+    "warnings": [
+      "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+    ],
+    "tag": "VERIFIED"
+  },
+  "comparisons": [
+    {
+      "label": "appdirs",
+      "run": {
+        "label": "appdirs",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-dlz4_euy\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-dlz4_euy\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-dlz4_euy\\scratch\\appdirs-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-dlz4_euy\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-dlz4_euy\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 1 warning in 9.64s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [
+        {
+          "proposal": "appdirs",
+          "file": "linkwatch/cache.py",
+          "start_line": 4,
+          "end_line": 4,
+          "executed": false,
+          "reason": "a deletion has no executable lines to run"
+        },
+        {
+          "proposal": "appdirs",
+          "file": "linkwatch/cache.py",
+          "start_line": 10,
+          "end_line": 10,
+          "executed": true,
+          "reason": "executed"
+        }
+      ],
+      "install_ok": true
+    },
+    {
+      "label": "certifi",
+      "run": {
+        "label": "certifi",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-t9p2w3qo\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-t9p2w3qo\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-t9p2w3qo\\scratch\\certifi-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-t9p2w3qo\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-t9p2w3qo\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 1 warning in 9.53s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [],
+      "install_ok": true
+    },
+    {
+      "label": "chardet",
+      "run": {
+        "label": "chardet",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-0271l5cs\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-0271l5cs\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-0271l5cs\\scratch\\chardet-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-0271l5cs\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\n..\\.venv\\Lib\\site-packages\\requests\\__init__.py:109\n  D:\\localhacktober\\_gm\\tmp\\rehearse-0271l5cs\\.venv\\Lib\\site-packages\\requests\\__init__.py:109: RequestsDependencyWarning: urllib3 (2.8.0) or chardet (7.6.0)/charset_normalizer (3.5.2) doesn't match a supported version!\n    warnings.warn(\n\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-0271l5cs\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 2 warnings in 11.66s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "..\\.venv\\Lib\\site-packages\\requests\\__init__.py:109: <venv>\\Lib\\site-packages\\requests\\__init__.py:109: RequestsDependencyWarning: urllib3 (2.8.0) or chardet (7.6.0)/charset_normalizer (3.5.2) doesn't match a supported version! warnings.warn(",
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [
+        "..\\.venv\\Lib\\site-packages\\requests\\__init__.py:109: <venv>\\Lib\\site-packages\\requests\\__init__.py:109: RequestsDependencyWarning: urllib3 (2.8.0) or chardet (7.6.0)/charset_normalizer (3.5.2) doesn't match a supported version! warnings.warn("
+      ],
+      "warnings_removed": [],
+      "edit_coverage": [],
+      "install_ok": true
+    },
+    {
+      "label": "idna",
+      "run": {
+        "label": "idna",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-icqh2rpp\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-icqh2rpp\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-icqh2rpp\\scratch\\idna-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-icqh2rpp\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-icqh2rpp\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 1 warning in 9.61s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [
+        {
+          "proposal": "idna",
+          "file": "requirements.txt",
+          "start_line": 10,
+          "end_line": 10,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "idna",
+          "file": "pyproject.toml",
+          "start_line": 22,
+          "end_line": 22,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        }
+      ],
+      "install_ok": true
+    },
+    {
+      "label": "jinja2",
+      "run": {
+        "label": "jinja2",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-befo2kuu\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-befo2kuu\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-befo2kuu\\scratch\\jinja2-junit.xml"
+        ],
+        "exit_code": 0,
+        "passed": 10,
+        "failed": 0,
+        "errors": 0,
+        "stdout_tail": "..........                                                               [100%]\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-befo2kuu\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n10 passed, 1 warning in 8.99s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "passed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [
+        "tests.test_report::test_report_renders_all_sites"
+      ],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [],
+      "install_ok": true
+    },
+    {
+      "label": "nose",
+      "run": {
+        "label": "nose",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-hie0lj6b\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-hie0lj6b\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-hie0lj6b\\scratch\\nose-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-hie0lj6b\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-hie0lj6b\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 1 warning in 9.46s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [],
+      "install_ok": true
+    },
+    {
+      "label": "pydantic",
+      "run": {
+        "label": "pydantic",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-6i8h62ga\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-6i8h62ga\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-6i8h62ga\\scratch\\pydantic-junit.xml"
+        ],
+        "exit_code": 4,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "stdout_tail": "ImportError while loading conftest 'D:\\localhacktober\\_gm\\tmp\\rehearse-6i8h62ga\\repo\\tests\\conftest.py'.\ntests\\conftest.py:8: in <module>\n    import linkwatch.cli  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:6: in <module>\n    from . import __version__, cache, checker, config, resources\nlinkwatch\\config.py:7: in <module>\n    class Site(BaseModel):\nlinkwatch\\config.py:14: in Site\n    @validator(\"name\")\n     ^^^^^^^^^\nE   NameError: name 'validator' is not defined\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {},
+        "warnings": [],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [
+        "tests.test_cache::test_cache_round_trip",
+        "tests.test_checker::test_ok_is_up",
+        "tests.test_checker::test_missing_is_down",
+        "tests.test_checker::test_redirect_is_up",
+        "tests.test_checker::test_slow_is_up",
+        "tests.test_checker::test_closed_port_is_down",
+        "tests.test_checker::test_latin1_title",
+        "tests.test_checker::test_user_agent",
+        "tests.test_config::test_sites_file_loads"
+      ],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [
+        "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+      ],
+      "edit_coverage": [
+        {
+          "proposal": "pydantic",
+          "file": "linkwatch/config.py",
+          "start_line": 4,
+          "end_line": 4,
+          "executed": true,
+          "reason": "executed"
+        }
+      ],
+      "install_ok": true
+    },
+    {
+      "label": "python-dateutil",
+      "run": {
+        "label": "python-dateutil",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-hsc3pa13\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-hsc3pa13\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-hsc3pa13\\scratch\\python-dateutil-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-hsc3pa13\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-hsc3pa13\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed, 1 warning in 10.55s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [],
+      "install_ok": true
+    },
+    {
+      "label": "requests",
+      "run": {
+        "label": "requests",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-516tordj\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-516tordj\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-516tordj\\scratch\\requests-junit.xml"
+        ],
+        "exit_code": 4,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "stdout_tail": "ImportError while loading conftest 'D:\\localhacktober\\_gm\\tmp\\rehearse-516tordj\\repo\\tests\\conftest.py'.\ntests\\conftest.py:8: in <module>\n    import linkwatch.cli  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:6: in <module>\n    from . import __version__, cache, checker, config, resources\nlinkwatch\\checker.py:4: in <module>\n    import certifi\nE   ModuleNotFoundError: No module named 'certifi'\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {},
+        "warnings": [],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [
+        "tests.test_cache::test_cache_round_trip",
+        "tests.test_checker::test_ok_is_up",
+        "tests.test_checker::test_missing_is_down",
+        "tests.test_checker::test_redirect_is_up",
+        "tests.test_checker::test_slow_is_up",
+        "tests.test_checker::test_closed_port_is_down",
+        "tests.test_checker::test_latin1_title",
+        "tests.test_checker::test_user_agent",
+        "tests.test_config::test_sites_file_loads"
+      ],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [
+        "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+      ],
+      "edit_coverage": [],
+      "install_ok": true
+    },
+    {
+      "label": "setuptools",
+      "run": {
+        "label": "setuptools",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-07gt9xin\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-07gt9xin\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-07gt9xin\\scratch\\setuptools-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "stdout_tail": ".........F                                                               [100%]\n================================== FAILURES ===================================\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-07gt9xin\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n=========================== short test summary info ===========================\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n1 failed, 9 passed in 9.45s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "passed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [
+        "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+      ],
+      "edit_coverage": [
+        {
+          "proposal": "setuptools",
+          "file": "linkwatch/resources.py",
+          "start_line": 1,
+          "end_line": 1,
+          "executed": true,
+          "reason": "executed"
+        },
+        {
+          "proposal": "setuptools",
+          "file": "linkwatch/resources.py",
+          "start_line": 6,
+          "end_line": 7,
+          "executed": true,
+          "reason": "executed"
+        }
+      ],
+      "install_ok": true
+    },
+    {
+      "label": "toml",
+      "run": {
+        "label": "toml",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-qx4e6mw2\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-qx4e6mw2\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-qx4e6mw2\\scratch\\toml-junit.xml"
+        ],
+        "exit_code": 1,
+        "passed": 8,
+        "failed": 2,
+        "errors": 0,
+        "stdout_tail": "........FF                                                               [100%]\n================================== FAILURES ===================================\n____________________________ test_sites_file_loads ____________________________\ntests\\test_config.py:9: in test_sites_file_loads\n    settings = load_settings(SITES_FILE)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\config.py:37: in load_settings\n    data = tomllib.load(path)\n           ^^^^^^^^^^^^^^^^^^\nC:\\Users\\deshp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\tomllib\\_parser.py:59: in load\n    b = fp.read()\n        ^^^^^^^\nE   AttributeError: 'str' object has no attribute 'read'\n________________________ test_report_renders_all_sites ________________________\ntests\\test_report.py:20: in test_report_renders_all_sites\n    result = CliRunner().invoke(cli, [\"report\", \"-o\", str(output)], catch_exceptions=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\testing.py:687: in invoke\n    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1552: in main\n    rv = self.invoke(ctx)\n         ^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:2032: in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:1415: in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\click\\core.py:910: in invoke\n    return callback(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:56: in report\n    from .report import render_report\nlinkwatch\\report.py:3: in <module>\n    from jinja2 import Environment, FileSystemLoader, select_autoescape\n..\\.venv\\Lib\\site-packages\\jinja2\\__init__.py:12: in <module>\n    from .environment import Environment\n..\\.venv\\Lib\\site-packages\\jinja2\\environment.py:25: in <module>\n    from .defaults import BLOCK_END_STRING\n..\\.venv\\Lib\\site-packages\\jinja2\\defaults.py:3: in <module>\n    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\.venv\\Lib\\site-packages\\jinja2\\filters.py:13: in <module>\n    from markupsafe import soft_unicode\nE   ImportError: cannot import name 'soft_unicode' from 'markupsafe' (D:\\localhacktober\\_gm\\tmp\\rehearse-qx4e6mw2\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py)\n============================== warnings summary ===============================\nlinkwatch\\resources.py:1\n  D:\\localhacktober\\_gm\\tmp\\rehearse-qx4e6mw2\\repo\\linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_config.py::test_sites_file_loads - AttributeError: 'str' ob...\nFAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...\n2 failed, 8 passed, 1 warning in 9.63s\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {
+          "tests.test_cache::test_cache_round_trip": "passed",
+          "tests.test_checker::test_ok_is_up": "passed",
+          "tests.test_checker::test_missing_is_down": "passed",
+          "tests.test_checker::test_redirect_is_up": "passed",
+          "tests.test_checker::test_slow_is_up": "passed",
+          "tests.test_checker::test_closed_port_is_down": "passed",
+          "tests.test_checker::test_latin1_title": "passed",
+          "tests.test_checker::test_user_agent": "passed",
+          "tests.test_config::test_sites_file_loads": "failed",
+          "tests.test_report::test_report_renders_all_sites": "failed"
+        },
+        "warnings": [
+          "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+        ],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [
+        "tests.test_config::test_sites_file_loads"
+      ],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [],
+      "edit_coverage": [
+        {
+          "proposal": "toml",
+          "file": "linkwatch/config.py",
+          "start_line": 3,
+          "end_line": 3,
+          "executed": true,
+          "reason": "executed"
+        },
+        {
+          "proposal": "toml",
+          "file": "linkwatch/config.py",
+          "start_line": 37,
+          "end_line": 37,
+          "executed": true,
+          "reason": "executed"
+        }
+      ],
+      "install_ok": true
+    },
+    {
+      "label": "combined",
+      "run": {
+        "label": "combined",
+        "command": [
+          "D:\\localhacktober\\_gm\\tmp\\rehearse-hvf4pv2o\\.venv\\Scripts\\python.exe",
+          "-m",
+          "coverage",
+          "run",
+          "--data-file=D:\\localhacktober\\_gm\\tmp\\rehearse-hvf4pv2o\\coverage.data",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-W",
+          "default",
+          "--tb=short",
+          "-q",
+          "--junitxml=D:\\localhacktober\\_gm\\tmp\\rehearse-hvf4pv2o\\scratch\\combined-junit.xml"
+        ],
+        "exit_code": 4,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "stdout_tail": "ImportError while loading conftest 'D:\\localhacktober\\_gm\\tmp\\rehearse-hvf4pv2o\\repo\\tests\\conftest.py'.\ntests\\conftest.py:8: in <module>\n    import linkwatch.cli  # noqa: F401\n    ^^^^^^^^^^^^^^^^^^^^\nlinkwatch\\cli.py:6: in <module>\n    from . import __version__, cache, checker, config, resources\nlinkwatch\\checker.py:5: in <module>\n    import requests\nE   ModuleNotFoundError: No module named 'requests'\n",
+        "timed_out": false,
+        "skipped": 0,
+        "tests": {},
+        "warnings": [],
+        "tag": "VERIFIED"
+      },
+      "new_failures": [
+        "tests.test_cache::test_cache_round_trip",
+        "tests.test_checker::test_ok_is_up",
+        "tests.test_checker::test_missing_is_down",
+        "tests.test_checker::test_redirect_is_up",
+        "tests.test_checker::test_slow_is_up",
+        "tests.test_checker::test_closed_port_is_down",
+        "tests.test_checker::test_latin1_title",
+        "tests.test_checker::test_user_agent",
+        "tests.test_config::test_sites_file_loads"
+      ],
+      "newly_passing": [],
+      "warnings_added": [],
+      "warnings_removed": [
+        "linkwatch\\resources.py:1: linkwatch\\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources"
+      ],
+      "edit_coverage": [
+        {
+          "proposal": "appdirs",
+          "file": "linkwatch/cache.py",
+          "start_line": 4,
+          "end_line": 4,
+          "executed": false,
+          "reason": "a deletion has no executable lines to run"
+        },
+        {
+          "proposal": "appdirs",
+          "file": "linkwatch/cache.py",
+          "start_line": 10,
+          "end_line": 10,
+          "executed": false,
+          "reason": "the edited lines were never executed by the tests"
+        },
+        {
+          "proposal": "idna",
+          "file": "requirements.txt",
+          "start_line": 10,
+          "end_line": 10,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "idna",
+          "file": "pyproject.toml",
+          "start_line": 22,
+          "end_line": 22,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "pydantic",
+          "file": "linkwatch/config.py",
+          "start_line": 4,
+          "end_line": 4,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "setuptools",
+          "file": "linkwatch/resources.py",
+          "start_line": 1,
+          "end_line": 1,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "setuptools",
+          "file": "linkwatch/resources.py",
+          "start_line": 6,
+          "end_line": 7,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "toml",
+          "file": "linkwatch/config.py",
+          "start_line": 3,
+          "end_line": 3,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        },
+        {
+          "proposal": "toml",
+          "file": "linkwatch/config.py",
+          "start_line": 37,
+          "end_line": 37,
+          "executed": false,
+          "reason": "the file was never imported by the tests"
+        }
+      ],
+      "install_ok": true
+    }
+  ],
+  "gaps": [
+    "[combined] new failures when all proposals are applied together: tests.test_cache::test_cache_round_trip, tests.test_checker::test_ok_is_up, tests.test_checker::test_missing_is_down, tests.test_checker::test_redirect_is_up, tests.test_checker::test_slow_is_up, tests.test_checker::test_closed_port_is_down, tests.test_checker::test_latin1_title, tests.test_checker::test_user_agent, tests.test_config::test_sites_file_loads",
+    "[appdirs] edit in linkwatch/cache.py:4 was not executed by the tests (a deletion has no executable lines to run)",
+    "[chardet] 1 new warning(s) compared with the baseline",
+    "[idna] edit in requirements.txt:10 was not executed by the tests (the file was never imported by the tests)",
+    "[idna] edit in pyproject.toml:22 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in linkwatch/cache.py:4 was not executed by the tests (a deletion has no executable lines to run)",
+    "[combined] edit in linkwatch/cache.py:10 was not executed by the tests (the edited lines were never executed by the tests)",
+    "[combined] edit in requirements.txt:10 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in pyproject.toml:22 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in linkwatch/config.py:4 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in linkwatch/resources.py:1 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in linkwatch/resources.py:6 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in linkwatch/config.py:3 was not executed by the tests (the file was never imported by the tests)",
+    "[combined] edit in linkwatch/config.py:37 was not executed by the tests (the file was never imported by the tests)"
+  ],
+  "patch_path": "D:\\localhacktober\\_gm\\out\\proposed.patch",
+  "summary": "The dependency resilience audit reviewed 14 dependencies, identifying 1 manifest conflict and 17 risk signals. Eleven migration proposals were generated, yielding mixed results: several dependencies, including certifi, chardet, jinja2, and setuptools, were verified, while pydantic, requests, and toml were refuted. Two dependencies, appdirs and idna, were flagged as unproven. Significant compatibility gaps were detected, primarily involving test failures where proposed code changes were not executed by the tests. These gaps indicate that applying the migration proposals together introduces instability and requires further validation.",
+  "summary_tag": "AI-GENERATED",
+  "summary_error": null,
+  "notes": []
+}

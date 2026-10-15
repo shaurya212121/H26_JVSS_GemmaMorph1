@@ -1,0 +1,97 @@
+--- a/linkwatch/cache.py
++++ b/linkwatch/cache.py
+@@ -1,13 +1,13 @@
+ import json
+ import os
+ 
+-from appdirs import user_cache_dir
++
+ 
+ RESULTS_FILE = "results.json"
+ 
+ 
+ def cache_dir():
+-    path = os.environ.get("LINKWATCH_CACHE_DIR") or user_cache_dir("linkwatch")
++    path = os.environ.get("LINKWATCH_CACHE_DIR")
+     os.makedirs(path, exist_ok=True)
+     return path
+ 
+--- a/linkwatch/config.py
++++ b/linkwatch/config.py
+@@ -1,7 +1,7 @@
+ from typing import List
+ 
+-import toml
+-from pydantic import BaseModel, validator
++import tomllib
++from pydantic import BaseModel
+ 
+ 
+ class Site(BaseModel):
+@@ -34,5 +34,5 @@
+ 
+ 
+ def load_settings(path="sites.toml"):
+-    data = toml.load(path)
++    data = tomllib.load(path)
+     return Settings(**data)
+--- a/linkwatch/resources.py
++++ b/linkwatch/resources.py
+@@ -1,7 +1,7 @@
+-import pkg_resources
++import importlib.resources
+ 
+ TEMPLATE_NAME = "status.html.j2"
+ 
+ 
+ def template_dir():
+-    return pkg_resources.resource_filename("linkwatch", "templates")
++    return importlib.resources.files("linkwatch").joinpath("templates")
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -10,17 +10,8 @@
+ license = { text = "MIT" }
+ requires-python = ">=3.10"
+ dependencies = [
+-    "toml==0.10.2",
+-    "appdirs==1.4.4",
+-    "requests==2.31.0",
+-    "Jinja2==2.11.3",
+-    "pydantic>=2",
+     "click>=7",
+     "six",
+-    "chardet==5.2.0",
+-    "setuptools==75.8.0",
+-    "idna==2.7",
+-    "python-dateutil",
+     "rich",
+ ]
+ 
+--- a/requirements-dev.txt
++++ b/requirements-dev.txt
+@@ -1,2 +1,8 @@
+ pytest
+-nose==1.3.7
++certifi
++chardet>=7.6.0
++idna>=3.20
++jinja2>=3.0.0
++pydantic>=2
++python-dateutil
++setuptools>=84.0.0
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,13 +1,4 @@
+-toml==0.10.2
+-appdirs==1.4.4
+-requests==2.31.0
+-Jinja2==2.11.3
+-pydantic==1.10.13
+ click>=7
+ six
+-chardet==5.2.0
+-setuptools==75.8.0
+-idna==2.7
+-python-dateutil
+ rich
+ # PyYAML==5.1

@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dependency Exit Capsule</title>
+<style>
+  :root {
+    --bg: #0b0f19;
+    --card: #151d2f;
+    --border: #23314d;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+    --verified-bg: #064e3b;
+    --verified-text: #6ee7b7;
+    --verified-border: #059669;
+    --observed-bg: #78350f;
+    --observed-text: #fcd34d;
+    --observed-border: #d97706;
+    --proposed-bg: #1e3a8a;
+    --proposed-text: #93c5fd;
+    --proposed-border: #2563eb;
+    --refuted-bg: #7f1d1d;
+    --refuted-text: #fca5a5;
+    --refuted-border: #dc2626;
+    --generated-bg: #581c87;
+    --generated-text: #d8b4fe;
+    --generated-border: #9333ea;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 24px;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1, h2, h3, h4 {
+    color: #ffffff;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  h1 { font-size: 2rem; border-bottom: 2px solid var(--border); padding-bottom: 12px; }
+  h2 { font-size: 1.4rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 1.15rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25);
+  }
+  .alert-refuted {
+    background: #3b0d0d;
+    border: 2px solid var(--refuted-border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+    vertical-align: middle;
+  }
+  .tag-verified { background: var(--verified-bg); color: var(--verified-text); border-color: var(--verified-border); }
+  .tag-observed { background: var(--observed-bg); color: var(--observed-text); border-color: var(--observed-border); }
+  .tag-proposed { background: var(--proposed-bg); color: var(--proposed-text); border-color: var(--proposed-border); }
+  .tag-refuted { background: var(--refuted-bg); color: var(--refuted-text); border-color: var(--refuted-border); }
+  .tag-generated { background: var(--generated-bg); color: var(--generated-text); border-color: var(--generated-border); }
+  .tag-default { background: #374151; color: #e5e7eb; border-color: #4b5563; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: #0d1322;
+    font-weight: 600;
+  }
+  tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  pre, code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.88rem;
+  }
+  code {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  pre {
+    background: #080c14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .summary-box {
+    background: rgba(0, 0, 0, 0.25);
+    border-left: 4px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 0 6px 6px 0;
+    margin: 16px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🛡️ Dependency Exit Capsule</h1>
+<div class="card">
+<div class="grid-2">
+<div><strong>Target Repository:</strong> <code>D:\localhacktober\_gm\LinkWatch</code></div>
+<div><strong>Generated At:</strong> <code>2026-10-15T10:39:16+00:00</code></div>
+<div><strong>Model:</strong> <code>gemma4:e2b</code> (ollama)</div>
+<div><strong>Base URL:</strong> <code>http://localhost:11434</code></div>
+</div></div>
+<div class="card">
+<h3>🏷️ Claim Verification Taxonomy</h3>
+<table>
+<tr><th>Tag</th><th>Definition</th><th>Verification Method</th></tr>
+<tr><td><span class="badge tag-verified">[VERIFIED]</span></td><td>Ground Truth</td><td>AST syntax parsing, deterministic commands with exit codes</td></tr>
+<tr><td><span class="badge tag-observed">[OBSERVED]</span></td><td>Observed Data</td><td>Pytest warning capture, PyPI warehouse metadata</td></tr>
+<tr><td><span class="badge tag-proposed">[AI-PROPOSED]</span></td><td>AI Hypothesis</td><td>Synthesized by Gemma model; unrehearsed</td></tr>
+<tr><td><span class="badge tag-refuted">[REFUTED]</span></td><td>Invalidated Hypothesis</td><td>Failed sandbox rehearsal (broke tests or introduced errors)</td></tr>
+<tr><td><span class="badge tag-generated">[AI-GENERATED]</span></td><td>AI Prose</td><td>Executive summary generated by Gemma</td></tr>
+</table></div>
+<div class="card">
+<h3>Pipeline Stages</h3>
+<table>
+<tr><th>Stage</th><th>Status</th><th>Details</th></tr>
+<tr><td><code>S1 discover</code></td><td style="color:#10b981; font-weight:700;">OK</td><td>—</td></tr>
+<tr><td><code>S2 risk_scan</code></td><td style="color:#10b981; font-weight:700;">OK</td><td>—</td></tr>
+<tr><td><code>S3 usage</code></td><td style="color:#10b981; font-weight:700;">OK</td><td>—</td></tr>
+<tr><td><code>S4 propose</code></td><td style="color:#10b981; font-weight:700;">OK</td><td>—</td></tr>
+<tr><td><code>S5 rehearse</code></td><td style="color:#10b981; font-weight:700;">OK</td><td>—</td></tr>
+</table></div>
+<div class="card">
+<h2>📝 Executive Summary</h2>
+<div class="summary-box"><span class="badge tag-generated">[AI-GENERATED]</span> The dependency resilience audit reviewed 14 dependencies, identifying 1 manifest conflict and 17 risk signals. Eleven migration proposals were generated, yielding mixed results: several dependencies, including certifi, chardet, jinja2, and setuptools, were verified, while pydantic, requests, and toml were refuted. Two dependencies, appdirs and idna, were flagged as unproven. Significant compatibility gaps were detected, primarily involving test failures where proposed code changes were not executed by the tests. These gaps indicate that applying the migration proposals together introduces instability and requires further validation.</div>
+</div>
+<div class="alert-refuted">
+<h2>⚠️ Refuted Proposals (Key Safety Deliverables)</h2>
+<p>The following proposals generated by Gemma were <strong>REFUTED</strong> by sandbox rehearsal. Rehearsal proved that applying these changes breaks tests or causes install failures. GemmaMorph prevented these faulty changes from reaching production.</p>
+<h3><span class="badge tag-refuted">[REFUTED]</span> <code>pydantic</code> → <code>pydantic</code></h3>
+<p><strong>Rationale:</strong> The current version 1.10.13 is significantly behind the latest release (2.14.1), and the declared requirement is `&gt;=2`. Upgrading Pydantic will resolve the version lag and ensure compatibility with modern Python environments.</p>
+<p><strong>Refutation Reasons:</strong></p><ul>
+<li>❌ new test failure: tests.test_cache::test_cache_round_trip</li>
+<li>❌ new test failure: tests.test_checker::test_ok_is_up</li>
+<li>❌ new test failure: tests.test_checker::test_missing_is_down</li>
+<li>❌ new test failure: tests.test_checker::test_redirect_is_up</li>
+<li>❌ new test failure: tests.test_checker::test_slow_is_up</li>
+<li>❌ new test failure: tests.test_checker::test_closed_port_is_down</li>
+<li>❌ new test failure: tests.test_checker::test_latin1_title</li>
+<li>❌ new test failure: tests.test_checker::test_user_agent</li>
+<li>❌ new test failure: tests.test_config::test_sites_file_loads</li>
+</ul>
+<h3><span class="badge tag-refuted">[REFUTED]</span> <code>requests</code> → <code>None</code></h3>
+<p><strong>Rationale:</strong> The dependency &#x27;requests&#x27; is deeply integrated into the codebase, utilizing specific utilities like `requests.utils._parse_content_type_header` and monkeypatching `requests.Session.request`, making replacement with an alternative library or standard library module highly complex.</p>
+<p><strong>Refutation Reasons:</strong></p><ul>
+<li>❌ new test failure: tests.test_cache::test_cache_round_trip</li>
+<li>❌ new test failure: tests.test_checker::test_ok_is_up</li>
+<li>❌ new test failure: tests.test_checker::test_missing_is_down</li>
+<li>❌ new test failure: tests.test_checker::test_redirect_is_up</li>
+<li>❌ new test failure: tests.test_checker::test_slow_is_up</li>
+<li>❌ new test failure: tests.test_checker::test_closed_port_is_down</li>
+<li>❌ new test failure: tests.test_checker::test_latin1_title</li>
+<li>❌ new test failure: tests.test_checker::test_user_agent</li>
+<li>❌ new test failure: tests.test_config::test_sites_file_loads</li>
+</ul>
+<h3><span class="badge tag-refuted">[REFUTED]</span> <code>toml</code> → <code>stdlib:tomllib</code></h3>
+<p><strong>Rationale:</strong> The dependency is severely outdated and incompatible with Python 3.12. Migrating to the standard library module `tomllib` resolves the stale release and outdated classifier issues.</p>
+<p><strong>Refutation Reasons:</strong></p><ul>
+<li>❌ new test failure: tests.test_config::test_sites_file_loads</li>
+</ul>
+</div>
+<div class="card">
+<h2>🔍 Dependency Risk Signals & Conflicts</h2>
+<h3>Manifest Conflicts</h3>
+<table><tr><th>Dependency</th><th>Tag</th><th>Detail</th><th>Declarations</th></tr>
+<tr><td><code>pydantic</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td><td>pydantic==1.10.13 (requirements.txt:5) cannot be satisfied together with pydantic&gt;=2 (pyproject.toml:17)</td><td>requirements.txt:5 (<code>==1.10.13</code>), pyproject.toml:17 (<code>&gt;=2</code>)</td></tr>
+</table>
+<h3>Risk Signals</h3>
+<table><tr><th>Dependency</th><th>Tag</th><th>Kind</th><th>Source</th><th>Detail</th></tr>
+<tr><td><code>appdirs</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>stale-release</code></td><td><code>pypi:appdirs</code></td><td>latest release 1.4.4 was uploaded 2020-05-11 (6.4 years ago)</td></tr>
+<tr><td><code>appdirs</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>outdated-classifiers</code></td><td><code>pypi:appdirs</code></td><td>classifiers list Python 3.8 at most; running 3.12</td></tr>
+<tr><td><code>chardet</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>version-lag</code></td><td><code>pypi:chardet</code></td><td>pinned 5.2.0; latest on PyPI is 7.6.0 (major version behind)</td></tr>
+<tr><td><code>idna</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>version-lag</code></td><td><code>pypi:idna</code></td><td>pinned 2.7; latest on PyPI is 3.20 (major version behind)</td></tr>
+<tr><td><code>jinja2</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>version-lag</code></td><td><code>pypi:jinja2</code></td><td>pinned 2.11.3; latest on PyPI is 3.1.6 (major version behind)</td></tr>
+<tr><td><code>nose</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>stale-release</code></td><td><code>pypi:nose</code></td><td>latest release 1.3.7 was uploaded 2015-06-02 (11.4 years ago)</td></tr>
+<tr><td><code>pydantic</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>version-lag</code></td><td><code>pypi:pydantic</code></td><td>pinned 1.10.13; latest on PyPI is 2.14.1 (major version behind)</td></tr>
+<tr><td><code>python-dateutil</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>stale-release</code></td><td><code>pypi:python-dateutil</code></td><td>latest release 2.9.0.post0 was uploaded 2024-03-01 (2.6 years ago)</td></tr>
+<tr><td><code>setuptools</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>version-lag</code></td><td><code>pypi:setuptools</code></td><td>pinned 75.8.0; latest on PyPI is 84.0.0 (major version behind)</td></tr>
+<tr><td><code>toml</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>stale-release</code></td><td><code>pypi:toml</code></td><td>latest release 0.10.2 was uploaded 2020-11-01 (6.0 years ago)</td></tr>
+<tr><td><code>toml</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>outdated-classifiers</code></td><td><code>pypi:toml</code></td><td>classifiers list Python 3.9 at most; running 3.12</td></tr>
+<tr><td><code>setuptools</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>test-warning</code></td><td><code>pytest:warnings:linkwatch\resources.py:1</code></td><td>linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources</td></tr>
+<tr><td><code>jinja2</code></td><td><span class="badge tag-observed">[OBSERVED]</span></td><td><code>test-failure</code></td><td><code>pytest:tests.test_report::test_report_renders_all_sites</code></td><td>ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (&lt;venv&gt;\Lib\site-packages\markupsafe\__init__.py)</td></tr>
+<tr><td><code>certifi</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td><td><code>undeclared-import</code></td><td><code>ast:linkwatch/checker.py</code></td><td>imported as &#x27;certifi&#x27; in linkwatch/checker.py but &#x27;certifi&#x27; is not declared</td></tr>
+<tr><td><code>requests</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td><td><code>private-api</code></td><td><code>ast:linkwatch/encoding.py:5</code></td><td>requests.utils._parse_content_type_header used in module scope</td></tr>
+<tr><td><code>requests</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td><td><code>private-api</code></td><td><code>ast:linkwatch/encoding.py:11</code></td><td>requests.utils._parse_content_type_header used in detect_encoding</td></tr>
+<tr><td><code>requests</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td><td><code>monkeypatch</code></td><td><code>ast:linkwatch/http_patch.py:14</code></td><td>requests.Session.request used in module scope</td></tr>
+</table>
+</div>
+<div class="card">
+<h2>📍 Codebase Usages (AST Findings)</h2>
+<h3><code>appdirs</code> (2 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/cache.py</code></td><td>4</td><td><code>import</code></td><td><code>appdirs.user_cache_dir</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cache.py</code></td><td>10</td><td><code>attribute</code></td><td><code>appdirs.user_cache_dir</code></td><td><code>cache_dir</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cache.py:4</code> (<code>appdirs.user_cache_dir</code>)</summary>
+<pre><code>import os
+
+from appdirs import user_cache_dir
+
+RESULTS_FILE = &quot;results.json&quot;</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cache.py:10</code> (<code>appdirs.user_cache_dir</code>)</summary>
+<pre><code>
+def cache_dir():
+    path = os.environ.get(&quot;LINKWATCH_CACHE_DIR&quot;) or user_cache_dir(&quot;linkwatch&quot;)
+    os.makedirs(path, exist_ok=True)
+    return path</code></pre></details>
+<h3><code>certifi</code> (2 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>4</td><td><code>import</code></td><td><code>certifi</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>15</td><td><code>attribute</code></td><td><code>certifi.where</code></td><td><code>fetch</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:4</code> (<code>certifi</code>)</summary>
+<pre><code>from datetime import datetime, timezone
+
+import certifi
+import requests
+from requests import Session as S</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:15</code> (<code>certifi.where</code>)</summary>
+<pre><code>    session = S()
+    try:
+        return session.get(url, verify=certifi.where())
+    finally:
+        session.close()</code></pre></details>
+<h3><code>chardet</code> (2 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/encoding.py</code></td><td>4</td><td><code>import</code></td><td><code>chardet</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/encoding.py</code></td><td>15</td><td><code>attribute</code></td><td><code>chardet.detect</code></td><td><code>detect_encoding</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/encoding.py:4</code> (<code>chardet</code>)</summary>
+<pre><code>import re
+
+import chardet
+from requests.utils import _parse_content_type_header</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/encoding.py:15</code> (<code>chardet.detect</code>)</summary>
+<pre><code>    if charset and charset is not True:
+        return charset
+    guess = chardet.detect(resp.content)
+    return guess[&quot;encoding&quot;] or &quot;utf-8&quot;</code></pre></details>
+<h3><code>click</code> (12 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>1</td><td><code>import</code></td><td><code>click</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>27</td><td><code>attribute</code></td><td><code>click.group</code></td><td><code>cli</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>28</td><td><code>attribute</code></td><td><code>click.version_option</code></td><td><code>cli</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>34</td><td><code>attribute</code></td><td><code>click.option</code></td><td><code>check</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>51</td><td><code>attribute</code></td><td><code>click.option</code></td><td><code>report</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>53</td><td><code>attribute</code></td><td><code>click.option</code></td><td><code>report</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>60</td><td><code>attribute</code></td><td><code>click.ClickException</code></td><td><code>report</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>62</td><td><code>attribute</code></td><td><code>click.echo</code></td><td><code>report</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>68</td><td><code>attribute</code></td><td><code>click.echo</code></td><td><code>info</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>69</td><td><code>attribute</code></td><td><code>click.echo</code></td><td><code>info</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>tests/test_report.py</code></td><td>1</td><td><code>import</code></td><td><code>click.testing.CliRunner</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>tests/test_report.py</code></td><td>20</td><td><code>attribute</code></td><td><code>click.testing.CliRunner</code></td><td><code>test_report_renders_all_sites</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:1</code> (<code>click</code>)</summary>
+<pre><code>import click
+from rich.console import Console
+from rich.live import Live</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:27</code> (<code>click.group</code>)</summary>
+<pre><code>
+
+@click.group()
+@click.version_option(__version__, prog_name=&quot;linkwatch&quot;)
+def cli():</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:28</code> (<code>click.version_option</code>)</summary>
+<pre><code>
+@click.group()
+@click.version_option(__version__, prog_name=&quot;linkwatch&quot;)
+def cli():
+    &quot;&quot;&quot;Check your sites and build a small status page.&quot;&quot;&quot;</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:34</code> (<code>click.option</code>)</summary>
+<pre><code>
+@cli.command()
+@click.option(&quot;--config&quot;, &quot;config_path&quot;, default=&quot;sites.toml&quot;, show_default=True,
+              help=&quot;Path to the sites file.&quot;)
+def check(config_path):</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:51</code> (<code>click.option</code>)</summary>
+<pre><code>
+@cli.command()
+@click.option(&quot;--output&quot;, &quot;-o&quot;, default=&quot;status.html&quot;, show_default=True,
+              help=&quot;Where to write the HTML page.&quot;)
+@click.option(&quot;--title&quot;, default=&quot;linkwatch&quot;, show_default=True)</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:53</code> (<code>click.option</code>)</summary>
+<pre><code>@click.option(&quot;--output&quot;, &quot;-o&quot;, default=&quot;status.html&quot;, show_default=True,
+              help=&quot;Where to write the HTML page.&quot;)
+@click.option(&quot;--title&quot;, default=&quot;linkwatch&quot;, show_default=True)
+def report(output, title):
+    &quot;&quot;&quot;Render the cached results to an HTML page.&quot;&quot;&quot;</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:60</code> (<code>click.ClickException</code>)</summary>
+<pre><code>    results = cache.load_results()
+    if not results:
+        raise click.ClickException(&quot;No cached results, run &#x27;linkwatch check&#x27; first.&quot;)
+    path = render_report(results, output=output, title=title)
+    click.echo(&quot;Wrote %s&quot; % path)</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:62</code> (<code>click.echo</code>)</summary>
+<pre><code>        raise click.ClickException(&quot;No cached results, run &#x27;linkwatch check&#x27; first.&quot;)
+    path = render_report(results, output=output, title=title)
+    click.echo(&quot;Wrote %s&quot; % path)</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:68</code> (<code>click.echo</code>)</summary>
+<pre><code>def info():
+    &quot;&quot;&quot;Show where linkwatch keeps its files.&quot;&quot;&quot;
+    click.echo(&quot;Templates: %s&quot; % resources.template_dir())
+    click.echo(&quot;Cache:     %s&quot; % cache.cache_file())</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:69</code> (<code>click.echo</code>)</summary>
+<pre><code>    &quot;&quot;&quot;Show where linkwatch keeps its files.&quot;&quot;&quot;
+    click.echo(&quot;Templates: %s&quot; % resources.template_dir())
+    click.echo(&quot;Cache:     %s&quot; % cache.cache_file())</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>tests/test_report.py:1</code> (<code>click.testing.CliRunner</code>)</summary>
+<pre><code>from click.testing import CliRunner
+
+from linkwatch import cache</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>tests/test_report.py:20</code> (<code>click.testing.CliRunner</code>)</summary>
+<pre><code>    cache.save_results(RESULTS)
+    output = tmp_path / &quot;status.html&quot;
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+    assert result.exit_code == 0
+    page = output.read_text(encoding=&quot;utf-8&quot;)</code></pre></details>
+<h3><code>idna</code> (0 usages)</h3>
+<p><em>No callsites detected in repository.</em></p>
+<h3><code>jinja2</code> (6 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/report.py</code></td><td>3</td><td><code>import</code></td><td><code>jinja2.Environment</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/report.py</code></td><td>3</td><td><code>import</code></td><td><code>jinja2.FileSystemLoader</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/report.py</code></td><td>3</td><td><code>import</code></td><td><code>jinja2.select_autoescape</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/report.py</code></td><td>9</td><td><code>attribute</code></td><td><code>jinja2.Environment</code></td><td><code>make_env</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/report.py</code></td><td>10</td><td><code>attribute</code></td><td><code>jinja2.FileSystemLoader</code></td><td><code>make_env</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/report.py</code></td><td>11</td><td><code>attribute</code></td><td><code>jinja2.select_autoescape</code></td><td><code>make_env</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/report.py:3</code> (<code>jinja2.Environment</code>)</summary>
+<pre><code>from datetime import datetime
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from .resources import TEMPLATE_NAME, template_dir</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/report.py:3</code> (<code>jinja2.FileSystemLoader</code>)</summary>
+<pre><code>from datetime import datetime
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from .resources import TEMPLATE_NAME, template_dir</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/report.py:3</code> (<code>jinja2.select_autoescape</code>)</summary>
+<pre><code>from datetime import datetime
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from .resources import TEMPLATE_NAME, template_dir</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/report.py:9</code> (<code>jinja2.Environment</code>)</summary>
+<pre><code>
+def make_env():
+    return Environment(
+        loader=FileSystemLoader(template_dir()),
+        autoescape=select_autoescape([&quot;html&quot;, &quot;j2&quot;]),</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/report.py:10</code> (<code>jinja2.FileSystemLoader</code>)</summary>
+<pre><code>def make_env():
+    return Environment(
+        loader=FileSystemLoader(template_dir()),
+        autoescape=select_autoescape([&quot;html&quot;, &quot;j2&quot;]),
+    )</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/report.py:11</code> (<code>jinja2.select_autoescape</code>)</summary>
+<pre><code>    return Environment(
+        loader=FileSystemLoader(template_dir()),
+        autoescape=select_autoescape([&quot;html&quot;, &quot;j2&quot;]),
+    )</code></pre></details>
+<h3><code>nose</code> (0 usages)</h3>
+<p><em>No callsites detected in repository.</em></p>
+<h3><code>pydantic</code> (6 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>4</td><td><code>import</code></td><td><code>pydantic.BaseModel</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>4</td><td><code>import</code></td><td><code>pydantic.validator</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>7</td><td><code>attribute</code></td><td><code>pydantic.BaseModel</code></td><td><code>Site</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>14</td><td><code>attribute</code></td><td><code>pydantic.validator</code></td><td><code>Site.name_not_empty</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>20</td><td><code>attribute</code></td><td><code>pydantic.validator</code></td><td><code>Site.url_has_scheme</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>27</td><td><code>attribute</code></td><td><code>pydantic.BaseModel</code></td><td><code>Settings</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:4</code> (<code>pydantic.BaseModel</code>)</summary>
+<pre><code>
+import toml
+from pydantic import BaseModel, validator</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:4</code> (<code>pydantic.validator</code>)</summary>
+<pre><code>
+import toml
+from pydantic import BaseModel, validator</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:7</code> (<code>pydantic.BaseModel</code>)</summary>
+<pre><code>
+
+class Site(BaseModel):
+    name: str
+    url: str</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:14</code> (<code>pydantic.validator</code>)</summary>
+<pre><code>        anystr_strip_whitespace = True
+
+    @validator(&quot;name&quot;)
+    def name_not_empty(cls, value):
+        if not value:</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:20</code> (<code>pydantic.validator</code>)</summary>
+<pre><code>        return value
+
+    @validator(&quot;url&quot;)
+    def url_has_scheme(cls, value):
+        if not value.startswith((&quot;http://&quot;, &quot;https://&quot;)):</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:27</code> (<code>pydantic.BaseModel</code>)</summary>
+<pre><code>
+
+class Settings(BaseModel):
+    title: str = &quot;linkwatch&quot;
+    output: str = &quot;status.html&quot;</code></pre></details>
+<h3><code>pytest</code> (3 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>tests/conftest.py</code></td><td>6</td><td><code>import</code></td><td><code>pytest</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>tests/conftest.py</code></td><td>60</td><td><code>attribute</code></td><td><code>pytest.fixture</code></td><td><code>server</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>tests/conftest.py</code></td><td>70</td><td><code>attribute</code></td><td><code>pytest.fixture</code></td><td><code>closed_port</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>tests/conftest.py:6</code> (<code>pytest</code>)</summary>
+<pre><code>from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import pytest
+
+import linkwatch.cli  # noqa: F401</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>tests/conftest.py:60</code> (<code>pytest.fixture</code>)</summary>
+<pre><code>
+
+@pytest.fixture(scope=&quot;session&quot;)
+def server():
+    httpd = ThreadingHTTPServer((&quot;127.0.0.1&quot;, 0), Handler)</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>tests/conftest.py:70</code> (<code>pytest.fixture</code>)</summary>
+<pre><code>
+
+@pytest.fixture
+def closed_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</code></pre></details>
+<h3><code>python-dateutil</code> (2 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/dates.py</code></td><td>1</td><td><code>import</code></td><td><code>dateutil.parser</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/dates.py</code></td><td>8</td><td><code>attribute</code></td><td><code>dateutil.parser.parse</code></td><td><code>parse_last_modified</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/dates.py:1</code> (<code>dateutil.parser</code>)</summary>
+<pre><code>from dateutil import parser</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/dates.py:8</code> (<code>dateutil.parser.parse</code>)</summary>
+<pre><code>        return None
+    try:
+        return parser.parse(value)
+    except (ValueError, OverflowError):
+        return None</code></pre></details>
+<h3><code>requests</code> (10 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>5</td><td><code>import</code></td><td><code>requests</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>6</td><td><code>import</code></td><td><code>requests.Session</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>13</td><td><code>attribute</code></td><td><code>requests.Session</code></td><td><code>fetch</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>35</td><td><code>attribute</code></td><td><code>requests.exceptions.ConnectionError</code></td><td><code>check_site</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/checker.py</code></td><td>38</td><td><code>attribute</code></td><td><code>requests.exceptions.Timeout</code></td><td><code>check_site</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/encoding.py</code></td><td>5</td><td><code>private-api</code></td><td><code>requests.utils._parse_content_type_header</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/encoding.py</code></td><td>11</td><td><code>private-api</code></td><td><code>requests.utils._parse_content_type_header</code></td><td><code>detect_encoding</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/http_patch.py</code></td><td>1</td><td><code>import</code></td><td><code>requests</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/http_patch.py</code></td><td>5</td><td><code>attribute</code></td><td><code>requests.Session.request</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/http_patch.py</code></td><td>14</td><td><code>monkeypatch</code></td><td><code>requests.Session.request</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:5</code> (<code>requests</code>)</summary>
+<pre><code>
+import certifi
+import requests
+from requests import Session as S</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:6</code> (<code>requests.Session</code>)</summary>
+<pre><code>import certifi
+import requests
+from requests import Session as S
+
+from .dates import parse_last_modified</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:13</code> (<code>requests.Session</code>)</summary>
+<pre><code>
+def fetch(url):
+    session = S()
+    try:
+        return session.get(url, verify=certifi.where())</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:35</code> (<code>requests.exceptions.ConnectionError</code>)</summary>
+<pre><code>    try:
+        resp = fetch(site.url)
+    except requests.exceptions.ConnectionError:
+        result[&quot;reason&quot;] = &quot;connection error&quot;
+        return result</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/checker.py:38</code> (<code>requests.exceptions.Timeout</code>)</summary>
+<pre><code>        result[&quot;reason&quot;] = &quot;connection error&quot;
+        return result
+    except requests.exceptions.Timeout:
+        result[&quot;reason&quot;] = &quot;timed out&quot;
+        return result</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/encoding.py:5</code> (<code>requests.utils._parse_content_type_header</code>)</summary>
+<pre><code>
+import chardet
+from requests.utils import _parse_content_type_header
+
+TITLE_RE = re.compile(r&quot;&lt;title[^&gt;]*&gt;(.*?)&lt;/title&gt;&quot;, re.IGNORECASE | re.DOTALL)</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/encoding.py:11</code> (<code>requests.utils._parse_content_type_header</code>)</summary>
+<pre><code>
+def detect_encoding(resp):
+    _, params = _parse_content_type_header(resp.headers.get(&quot;Content-Type&quot;, &quot;&quot;))
+    charset = params.get(&quot;charset&quot;)
+    if charset and charset is not True:</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/http_patch.py:1</code> (<code>requests</code>)</summary>
+<pre><code>import requests
+
+USER_AGENT = &quot;linkwatch/1.0&quot;</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/http_patch.py:5</code> (<code>requests.Session.request</code>)</summary>
+<pre><code>USER_AGENT = &quot;linkwatch/1.0&quot;
+
+_original_request = requests.Session.request</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/http_patch.py:14</code> (<code>requests.Session.request</code>)</summary>
+<pre><code>
+
+requests.Session.request = _request</code></pre></details>
+<h3><code>rich</code> (6 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>2</td><td><code>import</code></td><td><code>rich.console.Console</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>3</td><td><code>import</code></td><td><code>rich.live.Live</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>4</td><td><code>import</code></td><td><code>rich.table.Table</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>9</td><td><code>attribute</code></td><td><code>rich.console.Console</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>13</td><td><code>attribute</code></td><td><code>rich.table.Table</code></td><td><code>build_table</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/cli.py</code></td><td>40</td><td><code>attribute</code></td><td><code>rich.live.Live</code></td><td><code>check</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:2</code> (<code>rich.console.Console</code>)</summary>
+<pre><code>import click
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:3</code> (<code>rich.live.Live</code>)</summary>
+<pre><code>import click
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:4</code> (<code>rich.table.Table</code>)</summary>
+<pre><code>from rich.console import Console
+from rich.live import Live
+from rich.table import Table
+
+from . import __version__, cache, checker, config, resources</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:9</code> (<code>rich.console.Console</code>)</summary>
+<pre><code>from . import http_patch  # noqa: F401
+
+console = Console()</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:13</code> (<code>rich.table.Table</code>)</summary>
+<pre><code>
+def build_table(title, results):
+    table = Table(title=title)
+    table.add_column(&quot;Site&quot;, style=&quot;bold&quot;)
+    table.add_column(&quot;Status&quot;)</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/cli.py:40</code> (<code>rich.live.Live</code>)</summary>
+<pre><code>    settings = config.load_settings(config_path)
+    results = []
+    with Live(build_table(settings.title, results), console=console,
+              refresh_per_second=4) as live:
+        for result in checker.check_all(settings.sites):</code></pre></details>
+<h3><code>setuptools</code> (2 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/resources.py</code></td><td>1</td><td><code>import</code></td><td><code>pkg_resources</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/resources.py</code></td><td>7</td><td><code>attribute</code></td><td><code>pkg_resources.resource_filename</code></td><td><code>template_dir</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/resources.py:1</code> (<code>pkg_resources</code>)</summary>
+<pre><code>import pkg_resources
+
+TEMPLATE_NAME = &quot;status.html.j2&quot;</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/resources.py:7</code> (<code>pkg_resources.resource_filename</code>)</summary>
+<pre><code>
+def template_dir():
+    return pkg_resources.resource_filename(&quot;linkwatch&quot;, &quot;templates&quot;)</code></pre></details>
+<h3><code>six</code> (0 usages)</h3>
+<p><em>No callsites detected in repository.</em></p>
+<h3><code>toml</code> (2 usages)</h3>
+<table><tr><th>File</th><th>Line</th><th>Kind</th><th>Symbol</th><th>Function</th><th>Tag</th></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>3</td><td><code>import</code></td><td><code>toml</code></td><td><em>&lt;module&gt;</em></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+<tr><td><code>linkwatch/config.py</code></td><td>37</td><td><code>attribute</code></td><td><code>toml.load</code></td><td><code>load_settings</code></td><td><span class="badge tag-verified">[VERIFIED]</span></td></tr>
+</table>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:3</code> (<code>toml</code>)</summary>
+<pre><code>from typing import List
+
+import toml
+from pydantic import BaseModel, validator</code></pre></details>
+<details style="margin: 8px 0;"><summary>Snippet for <code>linkwatch/config.py:37</code> (<code>toml.load</code>)</summary>
+<pre><code>
+def load_settings(path=&quot;sites.toml&quot;):
+    data = toml.load(path)
+    return Settings(**data)</code></pre></details>
+</div>
+<div class="card">
+<h2>💡 Migration Proposals</h2>
+<h3><code>appdirs</code> → <em>None</em></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>unproven</code></p>
+<p><strong>Verdict Reasons:</strong> edit not executed: linkwatch/cache.py:4 (a deletion has no executable lines to run)</p>
+<p><strong>Rationale:</strong> The dependency is severely outdated, showing classifiers only up to Python 3.8, which is incompatible with the running Python 3.12 environment.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>appdirs==1.4.4</code></li>
+</ul>
+<p><strong>Proposed Code Edits:</strong></p>
+<details><summary>Edit 1 in <code>linkwatch/cache.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+from appdirs import user_cache_dir
+
+# &gt;&gt;&gt; NEW TEXT
+</code></pre></details>
+<details><summary>Edit 2 in <code>linkwatch/cache.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+path = os.environ.get(&quot;LINKWATCH_CACHE_DIR&quot;) or user_cache_dir(&quot;linkwatch&quot;)
+
+# &gt;&gt;&gt; NEW TEXT
+path = os.environ.get(&quot;LINKWATCH_CACHE_DIR&quot;)</code></pre></details>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests verifying that the application runs successfully without the appdirs dependency, specifically checking cache directory creation logic.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>The functionality provided by `appdirs.user_cache_dir` is removed, and the logic for determining the cache directory must be updated to use an alternative method (e.g., standard library path manipulation or a different package).</li>
+<li>The exact behavior of the original cache directory determination logic is not preserved.</li>
+</ul>
+<h3><code>certifi</code> → <code>certifi</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>verified</code></p>
+<p><strong>Verdict Reasons:</strong> all baseline tests still pass; 0 edit(s) executed by the tests</p>
+<p><strong>Rationale:</strong> The dependency &#x27;certifi&#x27; is required to provide the necessary trusted certificates for SSL verification when using the &#x27;requests&#x27; library.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Add: <code>certifi</code></li>
+</ul>
+<p><strong>Dropped Edits:</strong></p><ul>
+<li>Reason: old_text and new_text are identical</li>
+</ul>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests verifying that network requests using session.get() succeed when SSL verification is enabled via certifi.where()</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>The specific version of &#x27;certifi&#x27; required by the application is not specified, which might lead to compatibility issues if the installed version differs significantly from what is expected.</li>
+</ul>
+<h3><code>chardet</code> → <code>chardet</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>verified</code></p>
+<p><strong>Verdict Reasons:</strong> all baseline tests still pass; 0 edit(s) executed by the tests</p>
+<p><strong>Rationale:</strong> The dependency is lagging significantly behind the latest version (7.6.0), which poses a security and feature risk. Upgrading to the latest version mitigates this version-lag.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>chardet==5.2.0</code></li>
+<li>Add: <code>chardet&gt;=7.6.0</code></li>
+</ul>
+<p><strong>Dropped Edits:</strong></p><ul>
+<li>Reason: old_text and new_text are identical</li>
+<li>Reason: old_text and new_text are identical</li>
+</ul>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests covering content type detection and encoding guessing to ensure functionality remains correct after upgrading chardet.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>Potential API changes between chardet versions 5.x and 7.x might introduce breaking changes to the usage of chardet.detect() that require code adjustments.</li>
+</ul>
+<h3><code>idna</code> → <code>idna</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>unproven</code></p>
+<p><strong>Verdict Reasons:</strong> edit not executed: requirements.txt:10 (the file was never imported by the tests), edit not executed: pyproject.toml:22 (the file was never imported by the tests)</p>
+<p><strong>Rationale:</strong> The dependency is pinned to version 2.7, which is significantly behind the latest release on PyPI (3.20). Upgrading to the latest version mitigates the version-lag risk.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>idna==2.7</code></li>
+<li>Add: <code>idna&gt;=3.20</code></li>
+</ul>
+<p><strong>Proposed Code Edits:</strong></p>
+<details><summary>Edit 1 in <code>requirements.txt</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+idna==2.7
+
+# &gt;&gt;&gt; NEW TEXT
+idna&gt;=3.20</code></pre></details>
+<details><summary>Edit 2 in <code>pyproject.toml</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+idna==2.7
+
+# &gt;&gt;&gt; NEW TEXT
+idna&gt;=3.20</code></pre></details>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Run existing tests to ensure no regressions, as no usages were found in the repository.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>Since no usages were found, there is no functional verification possible. Upgrading to a major version (2.x to 3.x) might introduce breaking API changes that are not caught by existing tests.</li>
+</ul>
+<h3><code>jinja2</code> → <code>jinja2</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>verified</code></p>
+<p><strong>Verdict Reasons:</strong> all baseline tests still pass; 0 edit(s) executed by the tests</p>
+<p><strong>Rationale:</strong> The dependency is significantly version-lagged (2.11.3 vs latest 3.1.6), and the test failure suggests compatibility issues, likely related to internal changes between major versions.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>jinja2==2.11.3</code></li>
+<li>Add: <code>jinja2&gt;=3.0.0</code></li>
+</ul>
+<p><strong>Dropped Edits:</strong></p><ul>
+<li>Reason: old_text and new_text are identical</li>
+<li>Reason: old_text and new_text are identical</li>
+</ul>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>pytest tests.test_report_renders_all_sites</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>Potential for breaking changes between Jinja2 2.x and 3.x versions that were not caught by the existing test suite.</li>
+</ul>
+<h3><code>nose</code> → <em>None</em></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>verified</code></p>
+<p><strong>Verdict Reasons:</strong> all baseline tests still pass; 0 edit(s) executed by the tests</p>
+<p><strong>Rationale:</strong> The dependency &#x27;nose&#x27; is stale (last updated 2015) and has no usages found in the repository, making it safe to remove.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>nose==1.3.7</code></li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>The repository might rely on &#x27;nose&#x27; for testing functionality that is not visible in the provided evidence.</li>
+</ul>
+<h3><code>pydantic</code> → <code>pydantic</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-refuted">[REFUTED]</span> | <strong>Verdict:</strong> <code>refuted</code></p>
+<p><strong>Verdict Reasons:</strong> new test failure: tests.test_cache::test_cache_round_trip, new test failure: tests.test_checker::test_ok_is_up, new test failure: tests.test_checker::test_missing_is_down, new test failure: tests.test_checker::test_redirect_is_up, new test failure: tests.test_checker::test_slow_is_up, new test failure: tests.test_checker::test_closed_port_is_down, new test failure: tests.test_checker::test_latin1_title, new test failure: tests.test_checker::test_user_agent, new test failure: tests.test_config::test_sites_file_loads</p>
+<p><strong>Rationale:</strong> The current version 1.10.13 is significantly behind the latest release (2.14.1), and the declared requirement is `&gt;=2`. Upgrading Pydantic will resolve the version lag and ensure compatibility with modern Python environments.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>pydantic==1.10.13</code></li>
+<li>Add: <code>pydantic&gt;=2</code></li>
+</ul>
+<p><strong>Proposed Code Edits:</strong></p>
+<details><summary>Edit 1 in <code>linkwatch/config.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+from pydantic import BaseModel, validator
+
+# &gt;&gt;&gt; NEW TEXT
+from pydantic import BaseModel</code></pre></details>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests covering Site model validation (name_not_empty, url_has_scheme) to ensure they function correctly with Pydantic v2 syntax.</li>
+<li>Tests ensuring Settings model validation works after the dependency upgrade.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>Potential breaking changes between Pydantic v1 and v2 regarding the usage of `@validator` decorators, which may require code adjustments beyond the import statement.</li>
+<li>Verification that the existing validation logic (`name_not_empty`, `url_has_scheme`) remains functional in the upgraded version.</li>
+</ul>
+<h3><code>python-dateutil</code> → <em>None</em></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>verified</code></p>
+<p><strong>Verdict Reasons:</strong> all baseline tests still pass; 0 edit(s) executed by the tests</p>
+<p><strong>Rationale:</strong> The dependency python-dateutil is using a stale release (2.9.0.post0 from 2.6 years ago), posing a security and maintenance risk. The repository should update this dependency to the latest version.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>python-dateutil</code></li>
+<li>Add: <code>python-dateutil</code></li>
+</ul>
+<p><strong>Dropped Edits:</strong></p><ul>
+<li>Reason: old_text and new_text are identical</li>
+</ul>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests covering date parsing functionality to ensure that the behavior of parser.parse remains consistent after updating python-dateutil.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>The proposal does not include an explicit version constraint for python-dateutil, relying on the environment to install the latest version. If the latest version introduces breaking changes to the parsing API, the existing code in linkwatch/dates.py might require modification.</li>
+</ul>
+<h3><code>requests</code> → <em>None</em></h3>
+<p><strong>Tag:</strong> <span class="badge tag-refuted">[REFUTED]</span> | <strong>Verdict:</strong> <code>refuted</code></p>
+<p><strong>Verdict Reasons:</strong> new test failure: tests.test_cache::test_cache_round_trip, new test failure: tests.test_checker::test_ok_is_up, new test failure: tests.test_checker::test_missing_is_down, new test failure: tests.test_checker::test_redirect_is_up, new test failure: tests.test_checker::test_slow_is_up, new test failure: tests.test_checker::test_closed_port_is_down, new test failure: tests.test_checker::test_latin1_title, new test failure: tests.test_checker::test_user_agent, new test failure: tests.test_config::test_sites_file_loads</p>
+<p><strong>Rationale:</strong> The dependency &#x27;requests&#x27; is deeply integrated into the codebase, utilizing specific utilities like `requests.utils._parse_content_type_header` and monkeypatching `requests.Session.request`, making replacement with an alternative library or standard library module highly complex.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>requests==2.31.0</code></li>
+</ul>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests covering `linkwatch/checker.py` to ensure `session.get` and exception handling still function correctly.</li>
+<li>Tests covering `linkwatch/encoding.py` to ensure `detect_encoding` correctly uses `_parse_content_type_header`.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>The proposal does not address the long-term maintenance burden associated with relying on internal, private APIs of the &#x27;requests&#x27; library.</li>
+<li>The proposal does not address the risk associated with the monkeypatching in `linkwatch/http_patch.py`.</li>
+</ul>
+<h3><code>setuptools</code> → <code>importlib.resources</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-proposed">[AI-PROPOSED]</span> | <strong>Verdict:</strong> <code>verified</code></p>
+<p><strong>Verdict Reasons:</strong> all baseline tests still pass; 2 edit(s) executed by the tests</p>
+<p><strong>Rationale:</strong> The use of `pkg_resources` is deprecated, as indicated by the warning, and should be replaced with the modern `importlib.resources` API.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>setuptools==75.8.0</code></li>
+<li>Add: <code>setuptools&gt;=84.0.0</code></li>
+</ul>
+<p><strong>Proposed Code Edits:</strong></p>
+<details><summary>Edit 1 in <code>linkwatch/resources.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+import pkg_resources
+
+# &gt;&gt;&gt; NEW TEXT
+import importlib.resources</code></pre></details>
+<details><summary>Edit 2 in <code>linkwatch/resources.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+def template_dir():
+    return pkg_resources.resource_filename(&quot;linkwatch&quot;, &quot;templates&quot;)
+
+# &gt;&gt;&gt; NEW TEXT
+def template_dir():
+    return importlib.resources.files(&quot;linkwatch&quot;).joinpath(&quot;templates&quot;)</code></pre></details>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Tests verifying that template_dir() correctly returns the path to the &#x27;templates&#x27; directory contents using importlib.resources.</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>The migration might introduce new dependency requirements if `importlib.resources` requires a specific version of `setuptools` or other related packages.</li>
+<li>Behavior differences might exist between `pkg_resources.resource_filename` and `importlib.resources.files().joinpath()` regarding how resources are resolved or accessed.</li>
+</ul>
+<h3><code>toml</code> → <code>stdlib:tomllib</code></h3>
+<p><strong>Tag:</strong> <span class="badge tag-refuted">[REFUTED]</span> | <strong>Verdict:</strong> <code>refuted</code></p>
+<p><strong>Verdict Reasons:</strong> new test failure: tests.test_config::test_sites_file_loads</p>
+<p><strong>Rationale:</strong> The dependency is severely outdated and incompatible with Python 3.12. Migrating to the standard library module `tomllib` resolves the stale release and outdated classifier issues.</p>
+<p><strong>Requirements Changes:</strong></p><ul>
+<li>Remove: <code>toml==0.10.2</code></li>
+</ul>
+<p><strong>Proposed Code Edits:</strong></p>
+<details><summary>Edit 1 in <code>linkwatch/config.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+import toml
+
+# &gt;&gt;&gt; NEW TEXT
+import tomllib</code></pre></details>
+<details><summary>Edit 2 in <code>linkwatch/config.py</code></summary>
+<pre><code># &lt;&lt;&lt; OLD TEXT
+data = toml.load(path)
+
+# &gt;&gt;&gt; NEW TEXT
+data = tomllib.load(path)</code></pre></details>
+<p><strong>Suggested Verification Tests:</strong></p><ul>
+<li>Test loading settings from a valid TOML file using tomllib.load() and ensuring the resulting data structure is correctly passed to Settings(**data).</li>
+</ul>
+<p><strong>Expected Gaps:</strong></p><ul>
+<li>Behavior differences between the deprecated &#x27;toml.load&#x27; function and the standard library &#x27;tomllib.load&#x27; function, specifically regarding error handling or supported TOML features.</li>
+</ul>
+</div>
+<div class="card">
+<h2>🧪 Sandbox Exit Rehearsal Results</h2>
+<h3>Baseline Test Suite Run</h3>
+<p><strong>Exit Code:</strong> <code>1</code> | <strong>Passed:</strong> 9 | <strong>Failed:</strong> 1 | <strong>Errors:</strong> 0 | <strong>Skipped:</strong> 0</p>
+<p><strong>Warnings (1):</strong></p><ul>
+<li>⚠️ <code>linkwatch\resources.py:1: linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources</code></li>
+</ul>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\gemmamorph-s2-9cs8vg8w\venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\gemmamorph-s2-9cs8vg8w\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 1 warning in 9.45s</code></pre>
+<h3>Proposal Comparison Rehearsals</h3>
+<h4>Comparison: <code>appdirs</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-dlz4_euy\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-dlz4_euy\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 1 warning in 9.64s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<p><strong>Edit Coverage:</strong></p>
+<table><tr><th>Proposal</th><th>File</th><th>Lines</th><th>Executed</th><th>Reason</th></tr>
+<tr><td><code>appdirs</code></td><td><code>linkwatch/cache.py</code></td><td>4-4</td><td>No</td><td>a deletion has no executable lines to run</td></tr>
+<tr><td><code>appdirs</code></td><td><code>linkwatch/cache.py</code></td><td>10-10</td><td>Yes</td><td>executed</td></tr>
+</table>
+<h4>Comparison: <code>certifi</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-t9p2w3qo\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-t9p2w3qo\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 1 warning in 9.53s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<h4>Comparison: <code>chardet</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-0271l5cs\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+..\.venv\Lib\site-packages\requests\__init__.py:109
+  D:\localhacktober\_gm\tmp\rehearse-0271l5cs\.venv\Lib\site-packages\requests\__init__.py:109: RequestsDependencyWarning: urllib3 (2.8.0) or chardet (7.6.0)/charset_normalizer (3.5.2) doesn&#x27;t match a supported version!
+    warnings.warn(
+
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-0271l5cs\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 2 warnings in 11.66s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>..\.venv\Lib\site-packages\requests\__init__.py:109: &lt;venv&gt;\Lib\site-packages\requests\__init__.py:109: RequestsDependencyWarning: urllib3 (2.8.0) or chardet (7.6.0)/charset_normalizer (3.5.2) doesn&#x27;t match a supported version! warnings.warn(</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<h4>Comparison: <code>idna</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-icqh2rpp\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-icqh2rpp\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 1 warning in 9.61s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<p><strong>Edit Coverage:</strong></p>
+<table><tr><th>Proposal</th><th>File</th><th>Lines</th><th>Executed</th><th>Reason</th></tr>
+<tr><td><code>idna</code></td><td><code>requirements.txt</code></td><td>10-10</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>idna</code></td><td><code>pyproject.toml</code></td><td>22-22</td><td>No</td><td>the file was never imported by the tests</td></tr>
+</table>
+<h4>Comparison: <code>jinja2</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 10 passed, 0 failed, exit code <code>0</code></p>
+<pre><code>..........                                                               [100%]
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-befo2kuu\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+10 passed, 1 warning in 8.99s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>tests.test_report::test_report_renders_all_sites</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<h4>Comparison: <code>nose</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-hie0lj6b\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-hie0lj6b\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 1 warning in 9.46s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<h4>Comparison: <code>pydantic</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 0 passed, 0 failed, exit code <code>4</code></p>
+<pre><code>ImportError while loading conftest &#x27;D:\localhacktober\_gm\tmp\rehearse-6i8h62ga\repo\tests\conftest.py&#x27;.
+tests\conftest.py:8: in &lt;module&gt;
+    import linkwatch.cli  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:6: in &lt;module&gt;
+    from . import __version__, cache, checker, config, resources
+linkwatch\config.py:7: in &lt;module&gt;
+    class Site(BaseModel):
+linkwatch\config.py:14: in Site
+    @validator(&quot;name&quot;)
+     ^^^^^^^^^
+E   NameError: name &#x27;validator&#x27; is not defined</code></pre>
+<p><strong>New Failures:</strong> <code>tests.test_cache::test_cache_round_trip, tests.test_checker::test_ok_is_up, tests.test_checker::test_missing_is_down, tests.test_checker::test_redirect_is_up, tests.test_checker::test_slow_is_up, tests.test_checker::test_closed_port_is_down, tests.test_checker::test_latin1_title, tests.test_checker::test_user_agent, tests.test_config::test_sites_file_loads</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>linkwatch\resources.py:1: linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources</code></p>
+<p><strong>Edit Coverage:</strong></p>
+<table><tr><th>Proposal</th><th>File</th><th>Lines</th><th>Executed</th><th>Reason</th></tr>
+<tr><td><code>pydantic</code></td><td><code>linkwatch/config.py</code></td><td>4-4</td><td>Yes</td><td>executed</td></tr>
+</table>
+<h4>Comparison: <code>python-dateutil</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-hsc3pa13\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-hsc3pa13\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed, 1 warning in 10.55s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<h4>Comparison: <code>requests</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 0 passed, 0 failed, exit code <code>4</code></p>
+<pre><code>ImportError while loading conftest &#x27;D:\localhacktober\_gm\tmp\rehearse-516tordj\repo\tests\conftest.py&#x27;.
+tests\conftest.py:8: in &lt;module&gt;
+    import linkwatch.cli  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:6: in &lt;module&gt;
+    from . import __version__, cache, checker, config, resources
+linkwatch\checker.py:4: in &lt;module&gt;
+    import certifi
+E   ModuleNotFoundError: No module named &#x27;certifi&#x27;</code></pre>
+<p><strong>New Failures:</strong> <code>tests.test_cache::test_cache_round_trip, tests.test_checker::test_ok_is_up, tests.test_checker::test_missing_is_down, tests.test_checker::test_redirect_is_up, tests.test_checker::test_slow_is_up, tests.test_checker::test_closed_port_is_down, tests.test_checker::test_latin1_title, tests.test_checker::test_user_agent, tests.test_config::test_sites_file_loads</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>linkwatch\resources.py:1: linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources</code></p>
+<h4>Comparison: <code>setuptools</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 9 passed, 1 failed, exit code <code>1</code></p>
+<pre><code>.........F                                                               [100%]
+================================== FAILURES ===================================
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-07gt9xin\.venv\Lib\site-packages\markupsafe\__init__.py)
+=========================== short test summary info ===========================
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+1 failed, 9 passed in 9.45s</code></pre>
+<p><strong>New Failures:</strong> <code>None</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>linkwatch\resources.py:1: linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources</code></p>
+<p><strong>Edit Coverage:</strong></p>
+<table><tr><th>Proposal</th><th>File</th><th>Lines</th><th>Executed</th><th>Reason</th></tr>
+<tr><td><code>setuptools</code></td><td><code>linkwatch/resources.py</code></td><td>1-1</td><td>Yes</td><td>executed</td></tr>
+<tr><td><code>setuptools</code></td><td><code>linkwatch/resources.py</code></td><td>6-7</td><td>Yes</td><td>executed</td></tr>
+</table>
+<h4>Comparison: <code>toml</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 8 passed, 2 failed, exit code <code>1</code></p>
+<pre><code>........FF                                                               [100%]
+================================== FAILURES ===================================
+____________________________ test_sites_file_loads ____________________________
+tests\test_config.py:9: in test_sites_file_loads
+    settings = load_settings(SITES_FILE)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\config.py:37: in load_settings
+    data = tomllib.load(path)
+           ^^^^^^^^^^^^^^^^^^
+C:\Users\deshp\AppData\Local\Programs\Python\Python312\Lib\tomllib\_parser.py:59: in load
+    b = fp.read()
+        ^^^^^^^
+E   AttributeError: &#x27;str&#x27; object has no attribute &#x27;read&#x27;
+________________________ test_report_renders_all_sites ________________________
+tests\test_report.py:20: in test_report_renders_all_sites
+    result = CliRunner().invoke(cli, [&quot;report&quot;, &quot;-o&quot;, str(output)], catch_exceptions=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\testing.py:687: in invoke
+    return_value = cli.main(args=args or (), prog_name=prog_name, **extra)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1552: in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:2032: in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:1415: in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\click\core.py:910: in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:56: in report
+    from .report import render_report
+linkwatch\report.py:3: in &lt;module&gt;
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+..\.venv\Lib\site-packages\jinja2\__init__.py:12: in &lt;module&gt;
+    from .environment import Environment
+..\.venv\Lib\site-packages\jinja2\environment.py:25: in &lt;module&gt;
+    from .defaults import BLOCK_END_STRING
+..\.venv\Lib\site-packages\jinja2\defaults.py:3: in &lt;module&gt;
+    from .filters import FILTERS as DEFAULT_FILTERS  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\.venv\Lib\site-packages\jinja2\filters.py:13: in &lt;module&gt;
+    from markupsafe import soft_unicode
+E   ImportError: cannot import name &#x27;soft_unicode&#x27; from &#x27;markupsafe&#x27; (D:\localhacktober\_gm\tmp\rehearse-qx4e6mw2\.venv\Lib\site-packages\markupsafe\__init__.py)
+============================== warnings summary ===============================
+linkwatch\resources.py:1
+  D:\localhacktober\_gm\tmp\rehearse-qx4e6mw2\repo\linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_config.py::test_sites_file_loads - AttributeError: &#x27;str&#x27; ob...
+FAILED tests/test_report.py::test_report_renders_all_sites - ImportError: can...
+2 failed, 8 passed, 1 warning in 9.63s</code></pre>
+<p><strong>New Failures:</strong> <code>tests.test_config::test_sites_file_loads</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>None</code></p>
+<p><strong>Edit Coverage:</strong></p>
+<table><tr><th>Proposal</th><th>File</th><th>Lines</th><th>Executed</th><th>Reason</th></tr>
+<tr><td><code>toml</code></td><td><code>linkwatch/config.py</code></td><td>3-3</td><td>Yes</td><td>executed</td></tr>
+<tr><td><code>toml</code></td><td><code>linkwatch/config.py</code></td><td>37-37</td><td>Yes</td><td>executed</td></tr>
+</table>
+<h4>Comparison: <code>combined</code></h4>
+<p><strong>Install OK:</strong> Yes</p>
+<p><strong>Tests:</strong> 0 passed, 0 failed, exit code <code>4</code></p>
+<pre><code>ImportError while loading conftest &#x27;D:\localhacktober\_gm\tmp\rehearse-hvf4pv2o\repo\tests\conftest.py&#x27;.
+tests\conftest.py:8: in &lt;module&gt;
+    import linkwatch.cli  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^
+linkwatch\cli.py:6: in &lt;module&gt;
+    from . import __version__, cache, checker, config, resources
+linkwatch\checker.py:5: in &lt;module&gt;
+    import requests
+E   ModuleNotFoundError: No module named &#x27;requests&#x27;</code></pre>
+<p><strong>New Failures:</strong> <code>tests.test_cache::test_cache_round_trip, tests.test_checker::test_ok_is_up, tests.test_checker::test_missing_is_down, tests.test_checker::test_redirect_is_up, tests.test_checker::test_slow_is_up, tests.test_checker::test_closed_port_is_down, tests.test_checker::test_latin1_title, tests.test_checker::test_user_agent, tests.test_config::test_sites_file_loads</code></p>
+<p><strong>Newly Passing:</strong> <code>None</code></p>
+<p><strong>Warnings Added:</strong> <code>None</code></p>
+<p><strong>Warnings Removed:</strong> <code>linkwatch\resources.py:1: linkwatch\resources.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html import pkg_resources</code></p>
+<p><strong>Edit Coverage:</strong></p>
+<table><tr><th>Proposal</th><th>File</th><th>Lines</th><th>Executed</th><th>Reason</th></tr>
+<tr><td><code>appdirs</code></td><td><code>linkwatch/cache.py</code></td><td>4-4</td><td>No</td><td>a deletion has no executable lines to run</td></tr>
+<tr><td><code>appdirs</code></td><td><code>linkwatch/cache.py</code></td><td>10-10</td><td>No</td><td>the edited lines were never executed by the tests</td></tr>
+<tr><td><code>idna</code></td><td><code>requirements.txt</code></td><td>10-10</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>idna</code></td><td><code>pyproject.toml</code></td><td>22-22</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>pydantic</code></td><td><code>linkwatch/config.py</code></td><td>4-4</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>setuptools</code></td><td><code>linkwatch/resources.py</code></td><td>1-1</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>setuptools</code></td><td><code>linkwatch/resources.py</code></td><td>6-7</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>toml</code></td><td><code>linkwatch/config.py</code></td><td>3-3</td><td>No</td><td>the file was never imported by the tests</td></tr>
+<tr><td><code>toml</code></td><td><code>linkwatch/config.py</code></td><td>37-37</td><td>No</td><td>the file was never imported by the tests</td></tr>
+</table>
+</div>
+<div class="card">
+<h2>⚡ Compatibility Gaps & Patch</h2>
+<ul>
+<li>⚠️ [combined] new failures when all proposals are applied together: tests.test_cache::test_cache_round_trip, tests.test_checker::test_ok_is_up, tests.test_checker::test_missing_is_down, tests.test_checker::test_redirect_is_up, tests.test_checker::test_slow_is_up, tests.test_checker::test_closed_port_is_down, tests.test_checker::test_latin1_title, tests.test_checker::test_user_agent, tests.test_config::test_sites_file_loads</li>
+<li>⚠️ [appdirs] edit in linkwatch/cache.py:4 was not executed by the tests (a deletion has no executable lines to run)</li>
+<li>⚠️ [chardet] 1 new warning(s) compared with the baseline</li>
+<li>⚠️ [idna] edit in requirements.txt:10 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [idna] edit in pyproject.toml:22 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in linkwatch/cache.py:4 was not executed by the tests (a deletion has no executable lines to run)</li>
+<li>⚠️ [combined] edit in linkwatch/cache.py:10 was not executed by the tests (the edited lines were never executed by the tests)</li>
+<li>⚠️ [combined] edit in requirements.txt:10 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in pyproject.toml:22 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in linkwatch/config.py:4 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in linkwatch/resources.py:1 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in linkwatch/resources.py:6 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in linkwatch/config.py:3 was not executed by the tests (the file was never imported by the tests)</li>
+<li>⚠️ [combined] edit in linkwatch/config.py:37 was not executed by the tests (the file was never imported by the tests)</li>
+</ul>
+<p><strong>Unified Rehearsed Patch Path:</strong> <code>D:\localhacktober\_gm\out\proposed.patch</code></p>
+</div>
+</div>
+</body>
+</html>
