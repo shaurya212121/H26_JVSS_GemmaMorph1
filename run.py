@@ -84,7 +84,7 @@ def skipped(name: str, reason: str) -> Stage:
 
 def waiting_on(*deps: Stage) -> Optional[str]:
     for d in deps:
-        if d.status.status != OK or d.value is None:
+        if d.value is None:  # a stage that failed partway still passes on what it produced
             return f"{d.name} did not complete ({d.status.status})"
     return None
 
