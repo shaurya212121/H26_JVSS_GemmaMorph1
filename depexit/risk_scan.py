@@ -1,696 +1,370 @@
 """
-depexit.risk_scan - Stage 2: Dependency Risk Scanner.
+Stage 2: Risk scan. No AI.
 
-This module evaluates dependency health and resilience risks using two evidence sources:
-A) Metadata Risk (from PyPI API / offline cache):
-   - Compares pinned version vs latest release (flags >2 major versions behind).
-   - Identifies stale packages (last release >2 years ago).
-   - Detects inactive or unmaintained development status classifiers.
-   - Checks python_requires constraints against Python 3.12 / 3.13.
-   - Caches PyPI responses locally in `_pypi_cache.json` for offline demonstration.
-
-B) Observed Risk (from executing repo test suite):
-   - Executes `pytest tests/ -v --tb=short` in a subprocess.
-   - Extracts test counts: total, passed, failed, errors, warnings.
-   - Attributes deprecation warnings to specific packages (e.g. pkg_resources -> setuptools, pydantic.v1 -> pydantic).
-   - Attributes test failures/ImportErrors to specific packages (e.g. markupsafe -> Jinja2).
-
-Designed for Hacktoberfest Hack Day Mumbai 2026 - GemmaMorph project.
+Two kinds of evidence, each signal carries its source and tag:
+  * PyPI metadata (live JSON API): stale last release, yanked releases,
+    "Inactive" status, outdated classifiers, requires_python that excludes the
+    running interpreter, pinned version a major version behind.   -> [OBSERVED]
+  * Observed evidence: the target's own tests are run in a fresh venv built from
+    its requirements; warnings, import errors and failures are mapped to the
+    package that caused them.                                      -> [OBSERVED]
+Also flags third-party modules the code imports but never declares. -> [VERIFIED]
 """
 
 from __future__ import annotations
 
+import ast
 import json
-import os
 import re
-import subprocess
 import sys
-import time
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Callable
 
 import requests
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
-from packaging.version import parse as parse_version
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 
-from .discover import KNOWN_IMPORT_TO_PKG, discover, normalize_name
+from depexit.discover import normalize_name, requirements_files, SKIP_DIRS
+from depexit.envs import Env, copy_repo, create_env, pip_install, run_command, safe_rmtree
+from depexit.log import log
+from depexit.models import (
+    OBSERVED, VERIFIED, Dependency, DiscoveryResult, RiskScanResult, RiskSignal, RunResult,
+)
+from depexit.testrun import TestRun, run_tests
 
-# Default cache file path inside the depexit package directory
-CACHE_FILENAME = "_pypi_cache.json"
-
-
-def get_cache_file_path() -> Path:
-    """Return the absolute path to the local PyPI cache file."""
-    return Path(__file__).resolve().parent / CACHE_FILENAME
+FetchFn = Callable[[str], dict]
+SITE_PACKAGES = re.compile(r"site-packages[\\/]+([A-Za-z0-9_]+)")
+MISSING_MODULE = re.compile(r"(?:No module named|cannot import name .+? from) ['\"]([\w.]+)['\"]")
 
 
-def load_pypi_cache() -> dict[str, Any]:
-    """Load cached PyPI responses from disk if available."""
-    cache_path = get_cache_file_path()
-    if cache_path.is_file():
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"[!] Warning: Failed to read cache {cache_path}: {e}", file=sys.stderr)
-    return {}
+class PypiError(RuntimeError):
+    pass
 
 
-def save_pypi_cache(cache_data: dict[str, Any]) -> None:
-    """Persist PyPI responses to disk for offline access."""
-    cache_path = get_cache_file_path()
+def fetch_pypi(name: str) -> dict:
+    url = f"https://pypi.org/pypi/{name}/json"
     try:
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(cache_data, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print(f"[!] Warning: Failed to write cache {cache_path}: {e}", file=sys.stderr)
+        resp = requests.get(url, timeout=20, headers={"User-Agent": "GemmaMorph"})
+    except requests.RequestException as exc:
+        raise PypiError(f"cannot reach {url}: {exc}") from exc
+    if resp.status_code != 200:
+        raise PypiError(f"{url} returned HTTP {resp.status_code}")
+    return resp.json()
 
 
-def _compress_pypi_payload(raw_json: dict[str, Any]) -> dict[str, Any]:
-    """Trim excessive release history while keeping all essential metadata and URLs."""
-    info = raw_json.get("info", {})
-    urls = raw_json.get("urls", [])
-    latest_ver = info.get("version", "")
+# ---------------------------------------------------------------- PyPI signals
 
-    # Keep only urls for the latest release to keep cache lightweight and fast
-    compact: dict[str, Any] = {
-        "info": info,
-        "urls": urls[:3] if isinstance(urls, list) else [],
-    }
-
-    releases = raw_json.get("releases", {})
-    if latest_ver and latest_ver in releases:
-        compact["releases"] = {latest_ver: releases[latest_ver][:2]}
-    return compact
+def _pinned_version(dep: Dependency) -> str | None:
+    for decl in dep.declared:
+        for part in decl.spec.split(","):
+            part = part.strip()
+            if part.startswith("==") and "*" not in part:
+                return part[2:].strip()
+    return None
 
 
-def fetch_pypi_metadata(package_name: str, cache: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
-    """
-    Fetch package metadata from PyPI JSON API, falling back to local cache if offline.
+def _upload_time(files: list[dict]) -> datetime | None:
+    times = []
+    for f in files:
+        raw = f.get("upload_time_iso_8601") or f.get("upload_time")
+        if raw:
+            try:
+                dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                times.append(dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc))
+            except ValueError:
+                continue
+    return max(times) if times else None
 
-    Returns:
-        (metadata_dict, from_cache_boolean)
-    """
-    clean_name = normalize_name(package_name)
-    url = f"https://pypi.org/pypi/{clean_name}/json"
 
-    # Attempt live network request with 5s timeout
+def _all_yanked(files: list[dict]) -> bool:
+    return bool(files) and all(f.get("yanked") for f in files)
+
+
+def _requires_python_excludes(spec: str, running: Version) -> bool:
     try:
-        resp = requests.get(
-            url,
-            timeout=5,
-            headers={"User-Agent": "GemmaMorph-DepExit/1.0.0"},
-        )
-        if resp.status_code == 200:
-            data = _compress_pypi_payload(resp.json())
-            cache[clean_name] = data
-            return data, False
-    except (requests.RequestException, OSError):
-        # Network unavailable or timed out; proceed to cache lookup
-        pass
-
-    # Check local cache for offline mode
-    if clean_name in cache:
-        return cache[clean_name], True
-
-    # Also check if raw package_name exists in cache
-    if package_name in cache:
-        return cache[package_name], True
-
-    return None, False
+        return running not in SpecifierSet(spec)
+    except InvalidSpecifier:
+        return False
 
 
-def _clean_version_str(ver_str: str) -> str:
-    """Strip inequality operators (~, =, >, <, !, ^, space) from version string."""
-    if not ver_str or ver_str == "*":
-        return ""
-    return re.sub(r"^[=><~^! ]+", "", ver_str).strip()
+def metadata_signals(dep: Dependency, data: dict, stale_years: float, now: datetime) -> list[RiskSignal]:
+    name = dep.name
+    src = f"pypi:{name}"
+    info, releases = data.get("info", {}), data.get("releases", {})
+    latest = info.get("version", "")
+    pinned = _pinned_version(dep)
+    running = Version(f"{sys.version_info.major}.{sys.version_info.minor}")
+    sigs: list[RiskSignal] = []
 
+    def add(kind: str, detail: str) -> None:
+        sigs.append(RiskSignal(kind=kind, detail=detail, source=src, tag=OBSERVED, dependency=name))
 
-def _extract_release_date(pypi_data: dict[str, Any], latest_ver: str) -> str:
-    """Extract release date ISO string for the latest version."""
-    # 1. Check `urls` list (usually contains files for the latest release)
-    urls = pypi_data.get("urls", [])
-    if urls and isinstance(urls, list) and len(urls) > 0:
-        upload_time = urls[0].get("upload_time_iso_8601") or urls[0].get("upload_time")
-        if upload_time:
-            return str(upload_time)
+    released = _upload_time(releases.get(latest) or data.get("urls", []))
+    if released:
+        age = (now - released).days / 365.25
+        if age > stale_years:
+            add("stale-release", f"latest release {latest} was uploaded {released.date()} ({age:.1f} years ago)")
+    if _all_yanked(releases.get(latest, [])):
+        add("yanked", f"latest release {latest} is yanked on PyPI")
+    if pinned and _all_yanked(releases.get(pinned, [])):
+        add("yanked", f"pinned version {pinned} is yanked on PyPI")
 
-    # 2. Check `releases` dictionary for the latest version
-    releases = pypi_data.get("releases", {})
-    if latest_ver and latest_ver in releases and releases[latest_ver]:
-        upload_time = releases[latest_ver][0].get("upload_time_iso_8601") or releases[latest_ver][0].get("upload_time")
-        if upload_time:
-            return str(upload_time)
+    for c in info.get("classifiers", []):
+        if c.startswith("Development Status") and any(w in c for w in ("Inactive", "Planning", "Pre-Alpha")):
+            add("inactive", f"PyPI classifier: {c}")
+    py3_minors = [int(m.group(1)) for c in info.get("classifiers", [])
+                  if (m := re.fullmatch(r"Programming Language :: Python :: 3\.(\d+)", c))]
+    if py3_minors and max(py3_minors) < running.minor:
+        add("outdated-classifiers", f"classifiers list Python 3.{max(py3_minors)} at most; running 3.{running.minor}")
 
-    return ""
-
-
-def evaluate_metadata_risk(
-    package_name: str,
-    pinned_version_spec: str,
-    pypi_data: dict[str, Any] | None,
-    from_cache: bool,
-) -> dict[str, Any]:
-    """
-    Evaluate metadata risks for a single dependency according to PyPI metadata:
-    1. Major version lag (>2 major versions behind).
-    2. Stale package (last release >2 years ago).
-    3. Development status contains 'Inactive' or no status classifier.
-    4. python_requires excludes Python 3.12 or 3.13.
-    """
-    result: dict[str, Any] = {
-        "package": package_name,
-        "pinned_version": pinned_version_spec,
-        "latest_version": "N/A",
-        "last_release_date": "N/A",
-        "development_status": "Unknown",
-        "python_requires": "N/A",
-        "homepage_url": "",
-        "flags": [],
-        "risk_score": "LOW",
-        "from_cache": from_cache,
-    }
-
-    if not pypi_data:
-        result["flags"].append("Unable to fetch PyPI metadata (offline and not cached)")
-        result["risk_score"] = "UNKNOWN"
-        return result
-
-    info = pypi_data.get("info", {})
-    latest_version = info.get("version", "")
-    result["latest_version"] = latest_version
-
-    homepage = (
-        info.get("home_page")
-        or (info.get("project_urls") or {}).get("Homepage")
-        or (info.get("project_urls") or {}).get("Source")
-        or ""
-    )
-    result["homepage_url"] = homepage
-
-    python_requires = info.get("requires_python") or ""
-    result["python_requires"] = python_requires
-
-    # Extract Development Status classifier
-    classifiers = info.get("classifiers", [])
-    dev_status = ""
-    for c in classifiers:
-        if "Development Status" in c:
-            dev_status = c.split("::")[-1].strip()
-            break
-    result["development_status"] = dev_status if dev_status else "Not specified"
-
-    # Extract release date
-    release_date_str = _extract_release_date(pypi_data, latest_version)
-    result["last_release_date"] = release_date_str
-
-    flags: list[str] = []
-
-    # Flag 1: Pinned version is >2 major versions behind latest
-    clean_pinned = _clean_version_str(pinned_version_spec)
-    if clean_pinned and latest_version:
+    rp_latest = info.get("requires_python") or ""
+    if rp_latest and _requires_python_excludes(rp_latest, running):
+        add("python-requires", f"latest {latest} requires Python {rp_latest}, excludes {running}")
+    if pinned:
+        pinned_files = releases.get(pinned) or []
+        rp_pinned = next((f.get("requires_python") for f in pinned_files if f.get("requires_python")), "")
+        if rp_pinned and _requires_python_excludes(rp_pinned, running):
+            add("python-requires", f"pinned {pinned} requires Python {rp_pinned}, excludes {running}")
         try:
-            pinned_ver_obj = parse_version(clean_pinned)
-            latest_ver_obj = parse_version(latest_version)
-
-            if hasattr(pinned_ver_obj, "major") and hasattr(latest_ver_obj, "major"):
-                major_diff = latest_ver_obj.major - pinned_ver_obj.major
-                if major_diff >= 2:
-                    flags.append(
-                        f"Major version lag: pinned {pinned_version_spec} is {major_diff} "
-                        f"major versions behind latest ({latest_version})"
-                    )
-                elif major_diff == 1:
-                    # Informative flag for major version transition
-                    flags.append(
-                        f"Major version update available: pinned {pinned_version_spec} vs latest {latest_version} (v{pinned_ver_obj.major} -> v{latest_ver_obj.major})"
-                    )
+            if latest and Version(latest).major - Version(pinned).major >= 1:
+                add("version-lag", f"pinned {pinned}; latest on PyPI is {latest} (major version behind)")
         except InvalidVersion:
             pass
+    return sigs
 
-    # Flag 2: Last release >2 years ago
-    if release_date_str:
+
+# ------------------------------------------------------------ observed evidence
+
+def _dists_for_module(top: str, module_map: dict[str, list[str]]) -> list[str]:
+    top = top.removesuffix(".py")
+    return module_map.get(top) or module_map.get(top.lower()) or []
+
+
+def attribute_text(text: str, module_map: dict[str, list[str]], known: set[str],
+                   last_frame: bool = False) -> str | None:
+    """Map a traceback/warning text to a distribution via site-packages paths, then named modules."""
+    frames = SITE_PACKAGES.findall(text)
+    for top in (reversed(frames) if last_frame else frames):
+        dists = _dists_for_module(top, module_map)
+        if dists:
+            return dists[0]
+    m = MISSING_MODULE.search(text)
+    if m:
+        top = m.group(1).split(".")[0]
+        dists = _dists_for_module(top, module_map)
+        return dists[0] if dists else normalize_name(top)
+    # last resort: a declared package's import name mentioned in the text
+    lowered = text.lower()
+    for mod, dists in sorted(module_map.items(), key=lambda kv: -len(kv[0])):
+        if any(d in known for d in dists) and re.search(rf"\b{re.escape(mod.lower())}\b", lowered):
+            return next(d for d in dists if d in known)
+    return None
+
+
+def observed_signals(run: TestRun, module_map: dict[str, list[str]], known: set[str]) -> list[RiskSignal]:
+    sigs: list[RiskSignal] = []
+    seen: dict[tuple, int] = {}
+
+    def add(kind: str, detail: str, source: str, dep: str | None) -> None:
+        key = (kind, dep, detail)
+        if key in seen:
+            return
+        seen[key] = 1
+        sigs.append(RiskSignal(kind=kind, detail=detail, source=source, tag=OBSERVED, dependency=dep))
+
+    for location, text in run.warning_blocks:
+        dep = attribute_text(f"{location} {text}", module_map, known)
+        add("test-warning", text[:300], f"pytest:warnings:{location}", dep)
+    for f in run.failures:
+        body = f"{f.message}\n{f.text}"
+        dep = attribute_text(body, module_map, known, last_frame=True)
+        lines = f.text.strip().splitlines()
+        summary = (f.message or (lines[-1] if lines else "failure"))[:300]
+        add("test-failure", summary, f"pytest:{f.test}", dep)
+    return sigs
+
+
+# ------------------------------------------------------------ undeclared imports
+
+def local_module_names(root: Path) -> set[str]:
+    names: set[str] = set()
+    for base in (root, root / "src"):
+        if not base.is_dir():
+            continue
+        for item in base.iterdir():
+            if item.name in SKIP_DIRS or item.name.startswith("."):
+                continue
+            if item.is_file() and item.suffix == ".py":
+                names.add(item.stem)
+            elif item.is_dir() and any(item.rglob("*.py")):
+                names.add(item.name)
+    return names
+
+
+def third_party_imports(root: Path, notes: list[str]) -> dict[str, list[str]]:
+    """top-level module -> repo files importing it (stdlib and local modules excluded)."""
+    local = local_module_names(root)
+    stdlib = set(sys.stdlib_module_names)
+    found: dict[str, list[str]] = {}
+    for path in sorted(root.rglob("*.py")):
+        rel = path.relative_to(root)
+        if any(part in SKIP_DIRS or part.startswith(".") for part in rel.parts[:-1]):
+            continue
         try:
-            clean_date_str = release_date_str.replace("Z", "+00:00")
-            rel_dt = datetime.fromisoformat(clean_date_str)
-            now = datetime.now(timezone.utc)
-            days_old = (now - rel_dt).days
-            years_old = days_old / 365.25
-            if years_old > 2.0:
-                flags.append(f"Stale package: last release was {years_old:.1f} years ago ({release_date_str[:10]})")
-        except Exception:
-            pass
-
-    # Flag 3: Development status contains 'Inactive' or no status
-    if not dev_status:
-        flags.append("Missing Development Status classifier on PyPI")
-    elif any(term in dev_status.lower() for term in ["inactive", "unmaintained", "planning", "abandoned"]):
-        flags.append(f"Development status indicates inactive/unmaintained: '{dev_status}'")
-
-    # Flag 4: python_requires excludes 3.12 / 3.13
-    if python_requires:
-        try:
-            spec = SpecifierSet(python_requires)
-            v312 = Version("3.12")
-            v313 = Version("3.13")
-            if (v312 not in spec) or (v313 not in spec):
-                flags.append(f"python_requires ('{python_requires}') excludes Python 3.12 and/or 3.13")
-        except InvalidSpecifier:
-            pass
-
-    result["flags"] = flags
-
-    # Calculate overall risk score
-    is_inactive = any("inactive" in f.lower() for f in flags)
-    has_major_lag = any("major version lag" in f.lower() for f in flags)
-    is_stale = any("stale package" in f.lower() for f in flags)
-
-    if is_inactive or (has_major_lag and is_stale) or len(flags) >= 2:
-        result["risk_score"] = "HIGH"
-    elif len(flags) == 1:
-        result["risk_score"] = "MEDIUM"
-    else:
-        result["risk_score"] = "LOW"
-
-    return result
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+        except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+            notes.append(f"{rel.as_posix()}: skipped, cannot parse: {exc}")
+            continue
+        for node in ast.walk(tree):
+            mods: list[str] = []
+            if isinstance(node, ast.Import):
+                mods = [a.name.split(".")[0] for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                mods = [node.module.split(".")[0]]
+            for mod in mods:
+                if mod in stdlib or mod in local:
+                    continue
+                files = found.setdefault(mod, [])
+                if rel.as_posix() not in files:
+                    files.append(rel.as_posix())
+    return found
 
 
-def _attribute_warning(warning_text: str, location: str, declared_names: set[str]) -> str:
-    """
-    Attribute a deprecation or runtime warning to a specific package.
-    e.g. 'pkg_resources is deprecated' -> setuptools
-         'pydantic.v1' / '@validator' -> pydantic
-         'markupsafe' -> jinja2
-    """
-    lower_text = warning_text.lower()
-    lower_loc = location.lower()
-    combined = f"{lower_loc} {lower_text}"
-
-    # Specific rule-based attributions
-    if "pkg_resources" in combined or "setuptools" in combined:
-        return "setuptools"
-    if "pydantic" in combined or "@validator" in combined or "field_validator" in combined or "configdict" in combined:
-        return "pydantic"
-    if "markupsafe" in combined or "soft_unicode" in combined:
-        return "jinja2"
-    if "urllib3" in combined:
-        return "requests"
-    if "appdirs" in combined:
-        return "appdirs"
-    if "dateutil" in combined:
-        return "python-dateutil"
-    if "chardet" in combined or "charset_normalizer" in combined:
-        return "chardet"
-
-    # Known import name to package mapping
-    for mod_name, pkg in KNOWN_IMPORT_TO_PKG.items():
-        if mod_name in combined:
-            return pkg
-
-    # Match declared dependencies
-    for dep in declared_names:
-        if dep in combined or dep.replace("-", "_") in combined:
-            return dep
-
-    return "unknown"
+def undeclared_signals(root: Path, declared: set[str], module_map: dict[str, list[str]],
+                       notes: list[str]) -> list[RiskSignal]:
+    sigs: list[RiskSignal] = []
+    for mod, files in sorted(third_party_imports(root, notes).items()):
+        dists = _dists_for_module(mod, module_map)
+        if dists and any(d in declared for d in dists):
+            continue
+        dep = dists[0] if dists else normalize_name(mod)
+        how = "" if dists else " (module not installed in the test venv, so its distribution is unknown)"
+        sigs.append(RiskSignal(
+            kind="undeclared-import",
+            detail=f"imported as '{mod}' in {', '.join(files[:5])} but '{dep}' is not declared{how}",
+            source=f"ast:{files[0]}", tag=VERIFIED, dependency=dep,
+        ))
+    return sigs
 
 
-def _attribute_failure(error_text: str, test_name: str, declared_names: set[str]) -> str:
-    """
-    Attribute a test failure or exception to a specific dependency package.
-    e.g. 'ImportError from markupsafe' -> jinja2
-         'ModuleNotFoundError: No module named chardet' -> chardet
-    """
-    lower = f"{test_name} {error_text}".lower()
+# ------------------------------------------------------------------- the stage
 
-    # Match markupsafe -> jinja2
-    if "markupsafe" in lower:
-        return "jinja2"
-    if "pkg_resources" in lower or "setuptools" in lower:
-        return "setuptools"
-    if "pydantic" in lower:
-        return "pydantic"
-    if "urllib3" in lower:
-        return "requests"
-
-    # Match ModuleNotFoundError or ImportError
-    mod_match = re.search(r"(?:No module named|cannot import name .* from) ['\"]([A-Za-z0-9_]+)['\"]", error_text)
-    if mod_match:
-        mod = mod_match.group(1).lower()
-        if mod in KNOWN_IMPORT_TO_PKG:
-            return KNOWN_IMPORT_TO_PKG[mod]
-        norm = normalize_name(mod)
-        if norm in declared_names:
-            return norm
-        return norm
-
-    # Match declared dependencies in error text
-    for dep in declared_names:
-        if dep in lower or dep.replace("-", "_") in lower:
-            return dep
-
-    return "unknown"
-
-
-def run_observed_risk_tests(repo_path: Path, declared_names: set[str]) -> dict[str, Any]:
-    """
-    Stage 2 Part B: Run `pytest tests/ -v --tb=short` in target repo as a subprocess.
-    Extract total tests, passed, failed, errors, warnings, and attribute warnings/failures.
-    """
-    repo_abs = repo_path.resolve()
-    env = os.environ.copy()
-
-    # Ensure repository root is on PYTHONPATH so target code can be imported
-    if "PYTHONPATH" in env:
-        env["PYTHONPATH"] = f"{str(repo_abs)}{os.pathsep}{env['PYTHONPATH']}"
-    else:
-        env["PYTHONPATH"] = str(repo_abs)
-
-    cmd = [sys.executable, "-m", "pytest", "tests/", "-v", "--tb=short"]
-
-    start_time = time.monotonic()
+def _module_map(env: Env, cwd: Path) -> dict[str, list[str]]:
+    code = "import json, importlib.metadata as m; print(json.dumps(m.packages_distributions()))"
+    result, output = run_command("packages-distributions", [str(env.python), "-c", code], cwd, 120)
+    if result.exit_code != 0:
+        return {}
     try:
-        proc = subprocess.run(
-            cmd,
-            cwd=str(repo_abs),
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=env,
-        )
-        duration = time.monotonic() - start_time
-        stdout = proc.stdout or ""
-        stderr = proc.stderr or ""
-        full_output = f"{stdout}\n{stderr}"
-        exit_code = proc.returncode
-    except subprocess.TimeoutExpired as te:
-        return {
-            "test_summary": {
-                "total": 0,
-                "passed": 0,
-                "failed": 0,
-                "errors": 1,
-                "warnings": 0,
-                "exit_code": -1,
-                "duration_seconds": 120.0,
-            },
-            "attributed_warnings": [],
-            "attributed_failures": [
-                {
-                    "package": "unknown",
-                    "test": "pytest execution",
-                    "error": f"pytest timed out after 120s: {te}",
-                }
-            ],
-            "raw_output": te.stdout or "Timeout",
-        }
-    except Exception as exc:
-        return {
-            "test_summary": {
-                "total": 0,
-                "passed": 0,
-                "failed": 0,
-                "errors": 1,
-                "warnings": 0,
-                "exit_code": -1,
-                "duration_seconds": 0.0,
-            },
-            "attributed_warnings": [],
-            "attributed_failures": [
-                {
-                    "package": "unknown",
-                    "test": "pytest runner",
-                    "error": f"Failed to run pytest: {exc}",
-                }
-            ],
-            "raw_output": str(exc),
-        }
+        raw = json.loads(output.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {}
+    return {mod: [normalize_name(d) for d in dists] for mod, dists in raw.items()}
 
-    # 1. Parse summary line
-    passed = int(m.group(1)) if (m := re.search(r"(\d+)\s+passed", full_output)) else 0
-    failed = int(m.group(1)) if (m := re.search(r"(\d+)\s+failed", full_output)) else 0
-    errors = int(m.group(1)) if (m := re.search(r"(\d+)\s+error", full_output)) else 0
-    warnings = int(m.group(1)) if (m := re.search(r"(\d+)\s+warning", full_output)) else 0
 
-    total = passed + failed + errors
-    if total == 0:
-        collected_m = re.search(r"collected\s+(\d+)\s+items", full_output)
-        if collected_m:
-            total = int(collected_m.group(1))
+def install_signals(runs: list[RunResult], outputs: list[str]) -> list[RiskSignal]:
+    sigs = []
+    for run, out in zip(runs, outputs):
+        if run.exit_code == 0 or run.label == "create-venv":
+            continue
+        m = re.search(r"(?:requirement|building wheel for|Failed building wheel for)\s+([A-Za-z0-9_.\-]+)", out, re.I)
+        dep = normalize_name(m.group(1)) if m else None
+        last = next((l for l in reversed(out.splitlines()) if "error" in l.lower()), run.stdout_tail[-200:])
+        sigs.append(RiskSignal(kind="install-failure", detail=f"{run.label} exited {run.exit_code}: {last.strip()[:300]}",
+                               source=f"pip:{run.label}", tag=VERIFIED, dependency=dep))
+    return sigs
 
-    # 2. Parse and attribute warnings
-    attributed_warnings: list[dict[str, str]] = []
-    if "=== warnings summary ===" in full_output:
-        warning_section = full_output.split("=== warnings summary ===")[1]
-        for delimiter in ["\n===", "\n-- Docs:"]:
-            if delimiter in warning_section:
-                warning_section = warning_section.split(delimiter)[0]
 
-        # Break warnings into blocks: each starts with file:line
-        raw_blocks: list[tuple[str, str]] = []
-        cur_loc = ""
-        cur_lines: list[str] = []
+def scan_risks(
+    repo: Path,
+    discovery: DiscoveryResult,
+    stale_years: float = 2.0,
+    test_timeout: int = 600,
+    install_timeout: int = 900,
+    fetch: FetchFn = fetch_pypi,
+    keep_sandbox: bool = False,
+) -> RiskScanResult:
+    root = Path(repo).resolve()
+    now = datetime.now(timezone.utc)
+    known = {d.name for d in discovery.dependencies}
+    signals: list[RiskSignal] = []
+    notes: list[str] = []
 
-        for line in warning_section.splitlines():
-            loc_match = re.match(r"^([A-Za-z]:[\\/][^\s:]+|[^\s:]+\.py):\d+", line.strip())
-            if loc_match and not line.startswith("  "):
-                if cur_loc and cur_lines:
-                    raw_blocks.append((cur_loc, " ".join(cur_lines).strip()))
-                    cur_lines = []
-                cur_loc = line.strip()
+    # --- PyPI metadata
+    for dep in discovery.dependencies:
+        try:
+            data = fetch(dep.name)
+        except PypiError as exc:
+            signals.append(RiskSignal("pypi-unavailable", str(exc), f"pypi:{dep.name}", OBSERVED, dep.name))
+            continue
+        signals.extend(metadata_signals(dep, data, stale_years, now))
+
+    # --- Observed evidence: fresh venv + the target's tests
+    sandbox = Path(tempfile.mkdtemp(prefix="gemmamorph-s2-"))
+    install_runs: list[RunResult] = []
+    outputs: list[str] = []
+    baseline: RunResult | None = None
+    module_map: dict[str, list[str]] = {}
+    try:
+        work = copy_repo(root, sandbox / "repo")
+        env, create_run = create_env(sandbox / "venv", timeout=install_timeout)
+        install_runs.append(create_run)
+        outputs.append(create_run.stdout_tail)
+        if env is None:
+            signals.append(RiskSignal("install-failure", f"could not create a virtual environment: {create_run.stdout_tail[-300:]}",
+                                      "venv", VERIFIED))
+            notes.append("observed test evidence unavailable: venv creation failed")
+        else:
+            req_files = requirements_files(work)
+            if req_files:
+                for rf in req_files:
+                    run, out = pip_install(env, f"pip install -r {rf.name}", ["-r", str(rf)], work, install_timeout)
+                    install_runs.append(run); outputs.append(out)
             else:
-                if cur_loc and line.strip():
-                    cur_lines.append(line.strip())
+                specs = [f"{d.name}{d.declared[0].spec}" for d in discovery.dependencies]
+                if specs:
+                    run, out = pip_install(env, "pip install (pyproject dependencies)", specs, work, install_timeout)
+                    install_runs.append(run); outputs.append(out)
+            run, out = pip_install(env, "pip install pytest", ["pytest"], work, install_timeout)
+            install_runs.append(run); outputs.append(out)
 
-        if cur_loc and cur_lines:
-            raw_blocks.append((cur_loc, " ".join(cur_lines).strip()))
-
-        for loc, text in raw_blocks:
-            pkg = _attribute_warning(text, loc, declared_names)
-            attributed_warnings.append({
-                "package": pkg,
-                "location": loc,
-                "warning": text[:200] + ("..." if len(text) > 200 else ""),
-            })
-
-    # 3. Parse and attribute failures/errors
-    attributed_failures: list[dict[str, str]] = []
-    if failed > 0 or errors > 0:
-        # Match failure headers like: ____ test_name ____
-        failure_blocks = re.split(r"_{3,}\s+([^\n_]+)\s+_{3,}", full_output)
-        if len(failure_blocks) > 1:
-            for idx in range(1, len(failure_blocks), 2):
-                test_name = failure_blocks[idx].strip()
-                tb_body = failure_blocks[idx + 1] if idx + 1 < len(failure_blocks) else ""
-
-                # Extract exception line starting with E
-                err_lines = [l for l in tb_body.splitlines() if l.strip().startswith("E   ")]
-                err_text = " ".join(err_lines).strip() if err_lines else tb_body[:200]
-
-                pkg = _attribute_failure(err_text, test_name, declared_names)
-                attributed_failures.append({
-                    "package": pkg,
-                    "test": test_name,
-                    "error": err_text[:200],
-                })
+            module_map = _module_map(env, work)
+            test_run = run_tests(env, work, "baseline", sandbox / "scratch", test_timeout)
+            baseline = test_run.result
+            log(f"  baseline tests: {baseline.passed} passed, {baseline.failed} failed, "
+                f"{baseline.errors} errors (exit {baseline.exit_code})")
+            if baseline.exit_code == 5 or not baseline.tests:
+                notes.append("no tests were collected; there is no observed test evidence")
+            signals.extend(observed_signals(test_run, module_map, known))
+        signals.extend(install_signals(install_runs, outputs))
+        signals.extend(undeclared_signals(root, known, module_map, notes))
+    finally:
+        if keep_sandbox:
+            notes.append(f"sandbox kept at {sandbox}")
         else:
-            # Collection error or general failure
-            err_match = re.search(r"(?:E\s+.*|ImportError:.*|ModuleNotFoundError:.*)", full_output)
-            err_text = err_match.group(0).strip() if err_match else full_output[-300:]
-            pkg = _attribute_failure(err_text, "collection", declared_names)
-            attributed_failures.append({
-                "package": pkg,
-                "test": "collection/setup",
-                "error": err_text[:200],
-            })
+            safe_rmtree(sandbox)
 
-    return {
-        "test_summary": {
-            "total": total,
-            "passed": passed,
-            "failed": failed,
-            "errors": errors,
-            "warnings": warnings,
-            "duration_seconds": round(duration, 2),
-            "exit_code": exit_code,
-        },
-        "attributed_warnings": attributed_warnings,
-        "attributed_failures": attributed_failures,
-        "raw_output": full_output,
-    }
-
-
-def scan_risks(repo_path: Path | str, discovered: dict[str, Any] | None = None) -> dict[str, Any]:
-    """
-    Stage 2 Entrypoint: Run full risk scan (Metadata risks + Observed risks).
-
-    Args:
-        repo_path: Path to target repository.
-        discovered: Optional pre-computed Stage 1 discovery dictionary.
-
-    Returns:
-        Structured dict with 'metadata_risks' and 'observed_risks'.
-    """
-    root = Path(repo_path).resolve()
-    if not root.is_dir():
-        raise FileNotFoundError(f"Target repository not found at: {root}")
-
-    # If discovery result was not passed in, run Stage 1 discovery
-    if discovered is None:
-        discovered = discover(root)
-
-    declared_deps = discovered.get("declared_deps", [])
-
-    # Consolidate declared packages and identify preferred pinned versions
-    unique_packages: dict[str, str] = {}
-    for dep in declared_deps:
-        name = dep["name"]
-        ver = dep["pinned_version"]
-        # Prefer specific pinned version (e.g. ==1.10.13) over unpinned or >=
-        if name not in unique_packages:
-            unique_packages[name] = ver
-        elif unique_packages[name].startswith("*") and not ver.startswith("*"):
-            unique_packages[name] = ver
-        elif "==" in ver and "==" not in unique_packages[name]:
-            unique_packages[name] = ver
-
-    declared_names = set(unique_packages.keys())
-
-    # --- Evidence A: PyPI Metadata Risks ---
-    cache = load_pypi_cache()
-    metadata_risks: list[dict[str, Any]] = []
-
-    for pkg_name, pinned_ver in sorted(unique_packages.items()):
-        pypi_data, from_cache = fetch_pypi_metadata(pkg_name, cache)
-        risk_info = evaluate_metadata_risk(pkg_name, pinned_ver, pypi_data, from_cache)
-        metadata_risks.append(risk_info)
-
-    # Persist updated cache
-    save_pypi_cache(cache)
-
-    # --- Evidence B: Observed Test Risks ---
-    observed_risks = run_observed_risk_tests(root, declared_names)
-
-    return {
-        "metadata_risks": metadata_risks,
-        "observed_risks": observed_risks,
-    }
-
-
-# Convenience alias for alternate naming
-risk_scan = scan_risks
-
-
-def print_risk_summary(results: dict[str, Any], repo_path: Path) -> None:
-    """Print rich formatted summary for Stage 2 Risk Scanner results."""
-    console = Console()
-
-    console.print()
-    console.print(
-        Panel.fit(
-            f"[bold magenta]GemmaMorph Stage 2: Risk Scanner[/bold magenta]\n"
-            f"[dim]Target Repository:[/dim] [white]{repo_path}[/white]",
-            border_style="magenta",
-        )
-    )
-
-    # 1. Metadata Risks Table
-    meta_table = Table(title="[bold cyan]Evidence A: PyPI Metadata Risks[/bold cyan]", show_header=True)
-    meta_table.add_column("Package", style="cyan", no_wrap=True)
-    meta_table.add_column("Pinned Ver", style="white")
-    meta_table.add_column("Latest Ver", style="green")
-    meta_table.add_column("Last Release", style="dim")
-    meta_table.add_column("Dev Status", style="dim")
-    meta_table.add_column("Risk Level", justify="center")
-    meta_table.add_column("Identified Risk Flags", style="yellow")
-
-    for m in results.get("metadata_risks", []):
-        score = m["risk_score"]
-        if score == "HIGH":
-            score_style = "[bold red]HIGH[/bold red]"
-        elif score == "MEDIUM":
-            score_style = "[bold yellow]MED[/bold yellow]"
-        elif score == "LOW":
-            score_style = "[bold green]LOW[/bold green]"
-        else:
-            score_style = "[dim]UNKNOWN[/dim]"
-
-        flags_text = "\n".join(f"• {f}" for f in m["flags"]) if m["flags"] else "[dim]Healthy[/dim]"
-        rel_date = m["last_release_date"][:10] if m["last_release_date"] != "N/A" else "N/A"
-
-        meta_table.add_row(
-            m["package"],
-            m["pinned_version"],
-            m["latest_version"],
-            rel_date,
-            m["development_status"][:20],
-            score_style,
-            flags_text,
-        )
-
-    console.print(meta_table)
-    console.print()
-
-    # 2. Observed Test Summary Panel
-    obs = results.get("observed_risks", {})
-    ts = obs.get("test_summary", {})
-
-    status_str = "[bold green]PASSED[/bold green]" if ts.get("exit_code") == 0 else "[bold red]FAILED[/bold red]"
-    summary_msg = (
-        f"Result: {status_str} (Exit Code: {ts.get('exit_code')})\n"
-        f"Total Tests: [bold]{ts.get('total')}[/bold] | "
-        f"Passed: [green]{ts.get('passed')}[/green] | "
-        f"Failed: [red]{ts.get('failed')}[/red] | "
-        f"Errors: [red]{ts.get('errors')}[/red] | "
-        f"Warnings: [yellow]{ts.get('warnings')}[/yellow] | "
-        f"Duration: {ts.get('duration_seconds')}s"
-    )
-    console.print(
-        Panel(
-            summary_msg,
-            title="[bold cyan]Evidence B: Observed Test Suite Execution[/bold cyan]",
-            border_style="cyan",
-        )
-    )
-    console.print()
-
-    # 3. Attributed Warnings Table
-    warnings = obs.get("attributed_warnings", [])
-    if warnings:
-        warn_table = Table(title="[bold yellow]Attributed Deprecation / Runtime Warnings[/bold yellow]")
-        warn_table.add_column("Attributed Package", style="bold red", no_wrap=True)
-        warn_table.add_column("Source Location", style="dim", no_wrap=True)
-        warn_table.add_column("Warning Details", style="white")
-
-        for w in warnings:
-            warn_table.add_row(w["package"], w["location"], w["warning"])
-        console.print(warn_table)
-        console.print()
-
-    # 4. Attributed Failures Table
-    failures = obs.get("attributed_failures", [])
-    if failures:
-        fail_table = Table(title="[bold red]Attributed Test Failures[/bold red]")
-        fail_table.add_column("Attributed Package", style="bold red", no_wrap=True)
-        fail_table.add_column("Failed Test", style="yellow")
-        fail_table.add_column("Error Message", style="white")
-
-        for f in failures:
-            fail_table.add_row(f["package"], f["test"], f["error"])
-        console.print(fail_table)
-        console.print()
+    flagged = sorted({s.dependency for s in signals if s.dependency and s.kind != "pypi-unavailable"})
+    log(f"  {len(signals)} risk signals; {len(flagged)} flagged dependencies")
+    return RiskScanResult(signals=signals, baseline=baseline, install_runs=install_runs,
+                          module_map=module_map, flagged=flagged, notes=notes)
 
 
 if __name__ == "__main__":
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent.parent / "LinkWatch"
-    if not target.exists():
-        target = Path.cwd()
+    from depexit.discover import discover
 
-    scan_output = scan_risks(target)
-    print_risk_summary(scan_output, target)
+    target = Path(sys.argv[1])
+    found = discover(target)
+    result = scan_risks(target, found)
+    print(f"\nSIGNALS ({len(result.signals)})")
+    for s in result.signals:
+        print(f"  [{s.tag}] {s.dependency or '-':16} {s.kind:20} {s.detail[:150]}  <{s.source[:60]}>")
+    print(f"FLAGGED: {', '.join(result.flagged)}")
+    for n in result.notes:
+        print(f"NOTE: {n}")
+    for r in result.install_runs:
+        print(f"RUN {r.label:40} exit={r.exit_code}")
+    if result.baseline:
+        b = result.baseline
+        print(f"BASELINE passed={b.passed} failed={b.failed} errors={b.errors} exit={b.exit_code}")

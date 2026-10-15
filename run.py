@@ -70,10 +70,26 @@ def parse_arguments() -> argparse.Namespace:
         help="Path to the target repository to analyze (e.g. ../LinkWatch)",
     )
     parser.add_argument(
+        "--backend",
+        choices=["ollama", "gemini"],
+        default=None,
+        help="Model backend: local Ollama (default) or hosted Gemini API (needs GEMINI_API_KEY). Env: GEMMA_BACKEND",
+    )
+    parser.add_argument(
         "--hosted",
         action="store_true",
         default=False,
-        help="Use hosted Groq API (Gemma2-9B-IT) instead of local Ollama (Gemma2-2B)",
+        help="Shortcut for --backend gemini",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Gemma 4 model name (default gemma4:e2b for ollama, gemma-4-26b-a4b-it for gemini). Env: GEMMA_MODEL",
+    )
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="Backend base URL (default http://localhost:11434 for ollama). Env: GEMMA_BASE_URL or OLLAMA_HOST",
     )
     parser.add_argument(
         "--keep-sandbox",
@@ -112,10 +128,17 @@ def main() -> int:
     args = parse_arguments()
 
     # Step 2: Configure environment based on execution flags
-    if args.hosted:
-        os.environ["LLM_BACKEND"] = "groq"
-    else:
-        os.environ.setdefault("LLM_BACKEND", "ollama")
+    from depexit import llm
+    try:
+        llm_config = llm.LLMConfig.from_options(
+            backend="gemini" if args.hosted else args.backend,
+            model=args.model,
+            base_url=args.base_url,
+        )
+    except ValueError as exc:
+        console.print(f"[bold red]Error:[/bold red] {exc}")
+        return 2
+    llm.configure(llm.LLMClient(llm_config))
 
     print_banner()
 
@@ -124,7 +147,7 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     console.print(f"[bold]Target Repository:[/bold] [cyan]{repo_path}[/cyan]")
-    console.print(f"[bold]LLM Backend:[/bold]       [magenta]{os.environ.get('LLM_BACKEND', 'ollama').upper()}[/magenta]")
+    console.print(f"[bold]LLM Backend:[/bold]       [magenta]{llm_config.backend} / {llm_config.model} @ {llm_config.base_url}[/magenta]")
     console.print(f"[bold]Output Directory:[/bold]  [yellow]{output_dir}[/yellow]")
     console.print(f"[bold]Keep Sandboxes:[/bold]    [dim]{args.keep_sandbox}[/dim]")
     console.print(f"[bold]Skip Rehearsal:[/bold]    [dim]{args.skip_rehearsal}[/dim]\n")
@@ -317,16 +340,10 @@ def main() -> int:
             }
 
     # Stage 6: Dependency Exit Capsule Generator
-    model_name = os.getenv("GEMMA_MODEL", "gemma2-9b-it" if args.hosted else "gemma2:2b")
-    model_ver = "9B-Instruct" if "9b" in model_name.lower() else "2B-Instruct" if "2b" in model_name.lower() else "Gemma-2"
-    access_method = "Groq hosted API" if args.hosted else "Ollama local"
-
     model_info = {
-        "model_name": model_name,
-        "model_version": model_ver,
-        "access_method": access_method,
-        "model_license": "Apache 2.0",
-        "role_in_project": "Semantic risk analysis and migration code generation",
+        "model_name": llm_config.model,
+        "backend": llm_config.backend,
+        "base_url": llm_config.base_url,
     }
 
     try:

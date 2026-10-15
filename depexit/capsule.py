@@ -383,10 +383,8 @@ def _build_markdown_report(
     md.append("| :--- | :--- |")
     md.append(f"| **Target Repository** | `{target_repo}` |")
     md.append(f"| **Generated Timestamp** | `{generation_date}` |")
-    md.append(f"| **AI Model** | `{model_info.get('model_name', 'gemma2-9b-it')}` ({model_info.get('model_version', '9B-Instruct')}) |")
-    md.append(f"| **Access Method** | `{model_info.get('access_method', 'Groq hosted API')}` |")
-    md.append(f"| **Model License** | `{model_info.get('model_license', 'Apache 2.0')}` |")
-    md.append(f"| **Model Role** | `{model_info.get('role_in_project', 'Semantic risk analysis and migration code generation')}` |")
+    md.append(f"| **AI Model** | `{model_info.get('model_name', 'unknown')}` |")
+    md.append(f"| **Backend** | `{model_info.get('backend', 'unknown')}` at `{model_info.get('base_url', 'unknown')}` |")
     md.append("")
 
     # Verification Taxonomy
@@ -574,9 +572,8 @@ def _build_markdown_report(
     # Footer
     md.append("### 📜 Model & Project Provenance")
     md.append("")
-    md.append(f"- **Model:** Google `{model_info.get('model_name', 'gemma2-9b-it')}` ({model_info.get('model_version', '9B-Instruct')})")
-    md.append(f"- **Inference Provider:** `{model_info.get('access_method', 'Groq API')}`")
-    md.append(f"- **License:** `{model_info.get('model_license', 'Apache 2.0')}`")
+    md.append(f"- **Model:** `{model_info.get('model_name', 'unknown')}`")
+    md.append(f"- **Backend:** `{model_info.get('backend', 'unknown')}` at `{model_info.get('base_url', 'unknown')}`")
     md.append(f"- **GemmaMorph Version:** `v1.0` | **Team:** `JVSS`")
     md.append("")
 

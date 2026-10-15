@@ -22,10 +22,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-try:
-    from depexit.llm import ask_llm, parse_json_from_llm
-except ImportError:
-    from llm import ask_llm, parse_json_from_llm
+from depexit.llm import ask_llm, parse_json_from_llm
 
 console = Console()
 
@@ -36,41 +33,6 @@ GEMMA_SYSTEM_PROMPT = (
     "Never use unified diff format - use exact old_text/new_text pairs instead. "
     "Be conservative: if unsure about an edit, omit it and note it in expected_gaps."
 )
-
-# Known ground-truth migration patterns for LinkWatch reference
-KNOWN_MIGRATIONS_GUIDE = """
-Ground truth migration rules for common deprecated packages:
-1. 'appdirs':
-   - Action: 'replace'
-   - Replacement: 'platformdirs' (version: '>=4.0.0')
-   - Drop-in replacement with identical API: `from platformdirs import user_cache_dir`
-   - Requirements: remove 'appdirs==1.4.4', add 'platformdirs>=4.0.0'
-2. 'toml':
-   - Action: 'replace'
-   - Replacement: 'tomllib' (built-in standard library in Python 3.11+)
-   - Note: 'tomllib.load' requires binary file object `open(path, 'rb')`. E.g.:
-     `with open(path, "rb") as fh: data = tomllib.load(fh)`
-   - Requirements: remove 'toml==0.10.2', add nothing (stdlib)
-3. 'pydantic':
-   - Action: 'upgrade'
-   - Replacement: 'pydantic' (version: '>=2.7.0')
-   - Migrate `from pydantic import BaseModel, validator` to `from pydantic import BaseModel, field_validator`
-   - Migrate `@validator(...)` to `@field_validator(..., mode='before')`
-   - Requirements: remove 'pydantic==1.10.13', add 'pydantic>=2.7.0'
-4. 'Jinja2':
-   - Action: 'upgrade'
-   - Replacement: 'Jinja2' (version: '>=3.1.4')
-   - Fixes compatibility with modern MarkupSafe (e.g. soft_unicode removal)
-   - Requirements: remove 'Jinja2==2.11.3', add 'Jinja2>=3.1.4'
-5. 'six':
-   - Action: 'remove'
-   - Obsolete Python 2 compatibility shim. If 0 usages in code, remove entirely.
-   - Requirements: remove 'six', add nothing
-6. 'setuptools':
-   - Action: 'upgrade'
-   - Note: 'pkg_resources' API is deprecated in setuptools; recommend modern importlib.resources.
-"""
-
 
 def resolve_target_repo(repo_path: Optional[Path] = None) -> Path:
     """Resolve target repository path from argument, environment, or default relative location."""
@@ -143,8 +105,6 @@ Observed Runtime Warnings:
 
 AST Usages in Target Codebase:
 {usages_text}
-
-{KNOWN_MIGRATIONS_GUIDE}
 
 Instructions:
 Generate a precise, safe migration proposal to migrate away from this at-risk dependency on Python 3.12 (Windows).
@@ -438,23 +398,3 @@ def print_proposals_summary(proposals: list[dict[str, Any]]) -> None:
 
     console.print(table)
 
-
-if __name__ == "__main__":
-    from depexit.usage_finder import find_usages
-
-    repo = resolve_target_repo()
-    test_deps = [
-        {"name": "appdirs", "version": "1.4.4", "latest_version": "1.4.4", "reasons": ["Unmaintained since 2017"]},
-        {"name": "six", "version": "1.17.0", "latest_version": "1.17.0", "reasons": ["Obsolete Python 2 compatibility shim"]},
-    ]
-
-    console.print(f"[bold blue]Target repository:[/bold blue] {repo}")
-    dep_names = [d["name"] for d in test_deps]
-    usages_result = find_usages(repo, dep_names)
-    test_risks = {
-        "appdirs": {"risk_indicators": ["Unmaintained since 2017", "Use platformdirs instead"]},
-        "six": {"risk_indicators": ["Legacy Python 2 shim", "Zero usages"]},
-    }
-
-    results = propose_migrations(test_deps, usages_result, test_risks, repo_path=repo)
-    console.print(f"[bold green]Generated {len(results)} proposals successfully.[/bold green]")
