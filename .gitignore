@@ -28,3 +28,6 @@ Thumbs.db
 htmlcov/
 # Rehearsal sandbox temp dirs
 _sandbox_*/
+
+# GemmaMorph UI run output
+ui_runs/
