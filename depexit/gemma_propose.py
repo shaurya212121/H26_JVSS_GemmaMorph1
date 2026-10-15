@@ -1,400 +1,170 @@
 """
-Stage 4: Gemma Proposal Generator for GemmaMorph.
+Stage 4: Gemma 4 proposals.
 
-Generates precise migration proposals for at-risk dependencies using Google's Gemma model.
-Constructs rich AST-grounded prompts, extracts JSON defensively via llm.py, validates
-every code edit against target source files, and produces certified migration plans.
+For every flagged dependency Gemma receives the real usage snippets and the
+risk signals S2 collected, and returns one JSON object (replacement, exact
+old_text -> new_text edits, requirements change, suggested tests, expected
+gaps). Nothing is pre-written: the prompt carries no replacement table.
+
+Defensive handling:
+  * take the outermost {...} from the reply and validate it against the
+    Proposal schema; on failure ask ONCE more, quoting the validation error
+  * every edit is checked against the real file; an edit whose old_text is not
+    found exactly once is dropped and logged (kept in proposal.dropped_edits)
+  * if the model is unreachable the remaining dependencies are marked as not
+    attempted and the stage reports failed with the real error
+Every proposal is tagged AI-PROPOSED here; only a rehearsal can change that.
 """
 
 from __future__ import annotations
 
-import os
 import sys
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Protocol
 
-# Ensure project root is on sys.path for direct script execution
-_project_root = Path(__file__).resolve().parent.parent
-if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
-from rich import box
-from rich.console import Console
-from rich.table import Table
-
-from depexit.llm import ask_llm, parse_json_from_llm
-
-console = Console()
-
-GEMMA_SYSTEM_PROMPT = (
-    "You are an expert Python dependency migration specialist. "
-    "You analyze deprecated Python packages and generate precise, minimal code edits "
-    "to migrate to modern replacements. Always respond with valid JSON only. "
-    "Never use unified diff format - use exact old_text/new_text pairs instead. "
-    "Be conservative: if unsure about an edit, omit it and note it in expected_gaps."
+from depexit.edits import EditError, apply_edit, read_lf, resolve_in_repo
+from depexit.llm import LLMError, extract_json_object
+from depexit.log import log
+from depexit.models import (
+    FAILED, DiscoveryResult, Edit, Proposal, ProposalResult, ProposalSchemaError,
+    RiskScanResult, RiskSignal, StageStatus, Usage, UsageResult, proposal_from_json,
 )
 
-def resolve_target_repo(repo_path: Optional[Path] = None) -> Path:
-    """Resolve target repository path from argument, environment, or default relative location."""
-    if repo_path:
-        return Path(repo_path).resolve()
+MAX_USAGES = 25
+MAX_SIGNALS = 15
 
-    env_target = os.getenv("TARGET_REPO")
-    if env_target:
-        candidate = (Path(__file__).resolve().parent.parent / env_target).resolve()
-        if candidate.exists():
-            return candidate
-        direct = Path(env_target).resolve()
-        if direct.exists():
-            return direct
+SYSTEM_PROMPT = (
+    "You are a careful Python dependency migration assistant. You reply with a single JSON "
+    "object and nothing else. You only use the evidence you are given. If you are not sure "
+    "about an edit, leave it out and describe the gap in expected_gaps."
+)
 
-    # Default to ../LinkWatch relative to GemmaMorph repository root
-    default_path = (Path(__file__).resolve().parent.parent.parent / "LinkWatch").resolve()
-    return default_path
-
-
-def _format_usages_for_prompt(usages_list: list[dict[str, Any]]) -> str:
-    """Format AST usage findings into clear, structured context for the LLM prompt."""
-    if not usages_list:
-        return "No source code usages found (dependency is unreferenced in AST)."
-
-    formatted_blocks: list[str] = []
-    for idx, u in enumerate(usages_list, 1):
-        fpath = u.get("file_path", "unknown")
-        lineno = u.get("line_number", 0)
-        utype = u.get("usage_type", "usage")
-        code = u.get("code_line", "").strip()
-        context = u.get("context_snippet", "").strip()
-
-        block = (
-            f"Usage #{idx} ({utype}) in `{fpath}` at line {lineno}:\n"
-            f"  Exact Line: {code}\n"
-            f"  Surrounding Context:\n{context}\n"
-        )
-        formatted_blocks.append(block)
-
-    return "\n".join(formatted_blocks)
+SCHEMA = """{
+  "replacement": "package to use instead (same name when upgrading in place, 'stdlib: <module>' for a standard-library module) or null",
+  "rationale": "one or two sentences using the evidence above",
+  "edits": [{"file": "path exactly as shown above", "old_text": "text copied exactly from the source lines above", "new_text": "replacement text"}],
+  "requirements_change": {"remove": ["requirement strings to remove"], "add": ["requirement strings to add"]},
+  "suggested_tests": ["tests that would show the change works"],
+  "expected_gaps": ["behaviour differences or things this proposal does not cover"]
+}"""
 
 
-def _construct_migration_prompt(
-    pkg_name: str,
-    pinned_version: str,
-    latest_version: str,
-    risk_indicators: list[str],
-    test_failures: list[str],
-    warnings: list[str],
-    usages_text: str,
-) -> str:
-    """Build the comprehensive prompt for Gemma."""
-    risks_str = "\n".join(f"- {r}" for r in risk_indicators) if risk_indicators else "- Deprecated or at-risk library"
-    tests_str = "\n".join(f"- {tf}" for tf in test_failures) if test_failures else "None observed"
-    warns_str = "\n".join(f"- {w}" for w in warnings) if warnings else "None observed"
-
-    prompt = f"""Target Dependency: {pkg_name}
-Pinned Version: {pinned_version}
-Latest PyPI Version: {latest_version}
-
-Risk Indicators:
-{risks_str}
-
-Observed Test Failures / Incompatibilities:
-{tests_str}
-
-Observed Runtime Warnings:
-{warns_str}
-
-AST Usages in Target Codebase:
-{usages_text}
-
-Instructions:
-Generate a precise, safe migration proposal to migrate away from this at-risk dependency on Python 3.12 (Windows).
-Your response MUST be a single valid JSON object adhering strictly to this schema:
-{{
-  "action": "replace | upgrade | remove | keep",
-  "replacement_package": "name of replacement package, or null if none/stdlib/remove",
-  "replacement_version": "version specifier like '>=4.0.0', or null",
-  "reasoning": "1-2 sentence concise explanation of why this migration is necessary",
-  "migration_steps": [
-    "Step 1...",
-    "Step 2..."
-  ],
-  "code_edits": [
-    {{
-      "file": "relative/path/to/file.py",
-      "old_text": "exact existing text in file",
-      "new_text": "exact replacement text"
-    }}
-  ],
-  "requirements_edits": {{
-    "remove": ["package==x.y.z"],
-    "add": ["replacement>=a.b.c"]
-  }},
-  "expected_gaps": [
-    "Known limitations or behavioral differences"
-  ],
-  "suggested_tests": [
-    "Descriptions of test cases to verify the migration"
-  ]
-}}
-
-CRITICAL RULES:
-1. `old_text` MUST match existing source text EXACTLY (including indentation and casing).
-2. Do NOT use unified diffs or patch syntax (`---`, `+++`, `@@`).
-3. If no code changes are required (e.g. for pure upgrade or unused library), `code_edits` MUST be `[]`.
-4. Output ONLY valid JSON.
-"""
-    return prompt
+class LLM(Protocol):
+    def ask(self, prompt: str, system: str = "") -> str: ...
 
 
-def _validate_code_edits(
-    edits: list[dict[str, Any]],
-    repo_path: Path,
-) -> list[dict[str, Any]]:
-    """
-    Validate that each code_edit's `old_text` actually exists in the target file.
-    If not, log a warning with rich and discard that edit.
-    """
-    valid_edits: list[dict[str, Any]] = []
+def _signal_lines(signals: list[RiskSignal]) -> str:
+    if not signals:
+        return "- none"
+    return "\n".join(f"- [{s.tag}] {s.kind}: {s.detail} ({s.source})" for s in signals[:MAX_SIGNALS])
 
-    for edit in edits:
-        if not isinstance(edit, dict):
-            continue
 
-        file_rel = edit.get("file", "").strip()
-        old_text = edit.get("old_text", "")
-        new_text = edit.get("new_text", "")
+def _usage_blocks(usages: list[Usage]) -> str:
+    if not usages:
+        return "(no usages were found in the repository's Python files)"
+    blocks = []
+    for u in usages[:MAX_USAGES]:
+        where = f" in {u.function}" if u.function else ""
+        blocks.append(f"### {u.file}:{u.line} [{u.kind}] {u.symbol}{where}\n{u.snippet}")
+    more = len(usages) - MAX_USAGES
+    return "\n\n".join(blocks) + (f"\n\n(... {more} more usages not shown)" if more > 0 else "")
 
-        if not file_rel or not old_text:
-            console.log(f"[yellow]Discarding invalid code edit with empty file or old_text: {edit}[/yellow]")
-            continue
 
-        target_file = (repo_path / file_rel).resolve()
-        if not target_file.is_file():
-            console.log(f"[bold yellow]Validation Warning:[/bold yellow] File '{file_rel}' not found on disk. Discarding edit.")
-            continue
+def build_prompt(name: str, declared: str, signals: list[RiskSignal], usages: list[Usage]) -> str:
+    return f"""Dependency: {name}
+Declared in the repository: {declared}
+Python: {sys.version_info.major}.{sys.version_info.minor} on Windows
 
+Risk evidence:
+{_signal_lines(signals)}
+
+Where the repository uses it (exact source lines follow each header):
+{_usage_blocks(usages)}
+
+Task: propose how this repository should deal with the dependency '{name}' given the evidence.
+Reply with ONE JSON object with exactly these keys:
+{SCHEMA}
+
+Rules:
+1. old_text must be copied character for character from the source lines above, including indentation. Use "edits": [] when no source change is needed.
+2. Requirement strings look like "name==1.2.3" or "name>=2". To upgrade in place, remove the old requirement and add the new one.
+3. Do not invent file paths, functions or evidence that are not shown above.
+4. If the evidence shows the dependency is already at its latest release, upgrading cannot fix it: propose a different package or a standard-library module, or keep it (replacement null, no edits).
+5. If you remove an import, every use of it must be replaced in the same proposal, otherwise the code breaks."""
+
+
+def validate_edits(repo: Path, proposal: Proposal) -> None:
+    """Keep only edits that apply to the real files; log and record the rest."""
+    kept: list[Edit] = []
+    for edit in proposal.edits:
         try:
-            content = target_file.read_text(encoding="utf-8", errors="replace")
-        except Exception as read_err:
-            console.log(f"[bold yellow]Validation Warning:[/bold yellow] Cannot read '{file_rel}': {read_err}. Discarding edit.")
+            path = resolve_in_repo(repo, edit.file)
+            text, _ = read_lf(path)
+            apply_edit(text, edit.old_text, edit.new_text)
+        except EditError as exc:
+            log(f"    dropped edit in {edit.file}: {exc}")
+            proposal.dropped_edits.append({"edit": asdict(edit), "reason": str(exc)})
             continue
+        kept.append(edit)
+    proposal.edits = kept
 
-        # Check existence with newline normalization to prevent Windows CRLF mismatches
-        normalized_content = content.replace("\r\n", "\n")
-        normalized_old = old_text.replace("\r\n", "\n")
 
-        if normalized_old in normalized_content:
-            valid_edits.append({
-                "file": file_rel,
-                "old_text": old_text,
-                "new_text": new_text,
-            })
-        else:
-            console.log(
-                f"[bold yellow]Validation Warning:[/bold yellow] `old_text` does not exist in '{file_rel}'. "
-                f"Discarding edit:\n[dim]{old_text!r}[/dim]"
+def _declared(discovery: DiscoveryResult, name: str) -> str:
+    for dep in discovery.dependencies:
+        if dep.name == name:
+            return "; ".join(f"{d.file}:{d.line} {name}{d.spec}" for d in dep.declared)
+    return "not declared in any requirements file or pyproject.toml"
+
+
+def propose_one(llm: LLM, repo: Path, name: str, declared: str, signals: list[RiskSignal],
+                usages: list[Usage]) -> Proposal:
+    """Ask Gemma about one dependency. Raises LLMError if the model cannot be reached."""
+    prompt = build_prompt(name, declared, signals, usages)
+    reply = llm.ask(prompt, SYSTEM_PROMPT)
+    for attempt in (1, 2):
+        try:
+            proposal = proposal_from_json(name, extract_json_object(reply))
+            break
+        except (ValueError, ProposalSchemaError) as exc:
+            if attempt == 2:
+                return Proposal(dependency=name, error=f"model reply did not match the schema after one retry: {exc}")
+            log(f"    reply rejected ({exc}); asking once more")
+            reply = llm.ask(
+                f"{prompt}\n\nYour previous reply was rejected: {exc}\n"
+                f"Previous reply:\n{reply}\n\nReply again with ONE corrected JSON object.",
+                SYSTEM_PROMPT,
             )
-
-    return valid_edits
-
-
-def _build_fallback_proposal(
-    pkg_name: str,
-    pinned_version: str,
-    error_message: str,
-) -> dict[str, Any]:
-    """Create a standardized fallback proposal with action='manual_review' when LLM generation fails."""
-    return {
-        "dependency": pkg_name,
-        "source": "AI-PROPOSED",
-        "action": "manual_review",
-        "replacement_package": None,
-        "replacement_version": None,
-        "reasoning": f"Automated proposal failed: {error_message}. Requires manual inspection.",
-        "migration_steps": [
-            f"Review {pkg_name} deprecation notices and compatibility with Python 3.12",
-            "Manually inspect usages in codebase",
-            "Select and test a modern alternative",
-            "Update requirements.txt and verify test suite",
-        ],
-        "code_edits": [],
-        "requirements_edits": {
-            "remove": [],
-            "add": [],
-        },
-        "expected_gaps": [
-            "Automatic AST transformation could not be completed by LLM"
-        ],
-        "suggested_tests": [
-            f"Run integration test suite covering {pkg_name}"
-        ],
-    }
+    validate_edits(repo, proposal)
+    return proposal
 
 
 def propose_migrations(
-    at_risk_deps: list[Union[dict[str, Any], str]],
-    usages: dict[str, list[dict[str, Any]]],
-    risks: dict[str, Any],
-    repo_path: Optional[Path] = None,
-) -> list[dict[str, Any]]:
-    """
-    Generate migration proposals for all at-risk dependencies.
-
-    Args:
-        at_risk_deps: List of at-risk dependency dicts (or dependency name strings).
-        usages: Dict mapping package name -> list of AST usage records from usage_finder.
-        risks: Dict mapping package name -> risk indicators, test failures, warnings.
-        repo_path: Optional Path to target repository. Inferred if not provided.
-
-    Returns:
-        List of verified proposal dictionaries tagged with source='AI-PROPOSED'.
-    """
-    target_repo = resolve_target_repo(repo_path)
-    proposals: list[dict[str, Any]] = []
-
-    # Handle alternate parameter ordering if called as propose_migrations(discovery, risks, usages)
-    if isinstance(at_risk_deps, dict) and "dependencies" in at_risk_deps:
-        actual_deps = at_risk_deps.get("dependencies", [])
-        actual_risks = usages if isinstance(usages, dict) else {}
-        actual_usages = risks if isinstance(risks, dict) else {}
-        at_risk_deps = actual_deps
-        risks = actual_risks
-        usages = actual_usages
-    elif not isinstance(at_risk_deps, list):
-        at_risk_deps = list(at_risk_deps) if at_risk_deps else []
-
-    for item in at_risk_deps:
-        # Normalize input item
-        if isinstance(item, str):
-            pkg_name = item
-            pinned_ver = "unknown"
-            latest_ver = "unknown"
-            item_risks = []
-        elif isinstance(item, dict):
-            pkg_name = item.get("name") or item.get("package") or "unknown"
-            pinned_ver = item.get("version") or item.get("pinned_version") or "unknown"
-            latest_ver = item.get("latest_version") or "unknown"
-            item_risks = item.get("reasons") or item.get("risk_indicators") or []
-        else:
+    llm: LLM,
+    repo: Path,
+    discovery: DiscoveryResult,
+    risk: RiskScanResult,
+    usages: UsageResult,
+) -> ProposalResult:
+    repo = Path(repo).resolve()
+    proposals: list[Proposal] = []
+    unreachable: str | None = None
+    for name in risk.flagged:
+        if unreachable:
+            proposals.append(Proposal(dependency=name, error=f"not attempted: model unreachable ({unreachable})"))
             continue
-
-        console.log(f"[bold cyan]Analyzing migration for:[/bold cyan] [bold yellow]{pkg_name}[/bold yellow] ({pinned_ver})")
-
-        # Gather package usages & risks
-        pkg_usages = usages.get(pkg_name, [])
-        risk_info = risks.get(pkg_name, {})
-        if isinstance(risk_info, dict):
-            combined_risks = list(set(item_risks + risk_info.get("risk_indicators", []) + risk_info.get("reasons", [])))
-            test_failures = risk_info.get("test_failures", [])
-            warnings = risk_info.get("warnings", [])
-        elif isinstance(risk_info, list):
-            combined_risks = list(set(item_risks + risk_info))
-            test_failures = []
-            warnings = []
-        else:
-            combined_risks = item_risks
-            test_failures = []
-            warnings = []
-
-        usages_formatted = _format_usages_for_prompt(pkg_usages)
-
-        # Build prompt
-        prompt = _construct_migration_prompt(
-            pkg_name=pkg_name,
-            pinned_version=pinned_ver,
-            latest_version=latest_ver,
-            risk_indicators=combined_risks,
-            test_failures=test_failures,
-            warnings=warnings,
-            usages_text=usages_formatted,
-        )
-
+        log(f"  proposing for {name}")
+        signals = [s for s in risk.signals if s.dependency == name]
         try:
-            # Query LLM
-            raw_response = ask_llm(prompt, system=GEMMA_SYSTEM_PROMPT)
-            # Defensively extract JSON
-            proposal = parse_json_from_llm(raw_response)
+            proposals.append(propose_one(llm, repo, name, _declared(discovery, name), signals,
+                                         usages.usages.get(name, [])))
+        except LLMError as exc:
+            unreachable = str(exc)
+            proposals.append(Proposal(dependency=name, error=f"model call failed: {exc}"))
 
-            # Ensure core fields exist
-            proposal["dependency"] = pkg_name
-            proposal["action"] = proposal.get("action", "manual_review")
-            proposal["replacement_package"] = proposal.get("replacement_package")
-            proposal["replacement_version"] = proposal.get("replacement_version")
-            proposal["reasoning"] = proposal.get("reasoning", "")
-            proposal["migration_steps"] = proposal.get("migration_steps", [])
-            proposal["requirements_edits"] = proposal.get("requirements_edits", {"remove": [], "add": []})
-            proposal["expected_gaps"] = proposal.get("expected_gaps", [])
-            proposal["suggested_tests"] = proposal.get("suggested_tests", [])
-
-            # Validate each code_edit against target repo files
-            raw_edits = proposal.get("code_edits", [])
-            valid_edits = _validate_code_edits(raw_edits, target_repo)
-            proposal["code_edits"] = valid_edits
-
-            # Tag proposal source as AI-PROPOSED
-            proposal["source"] = "AI-PROPOSED"
-
-            console.log(
-                f"[bold green]Proposal generated for {pkg_name}:[/bold green] "
-                f"Action=[bold magenta]{proposal['action']}[/bold magenta], "
-                f"Valid Edits={len(valid_edits)}"
-            )
-
-        except Exception as exc:
-            console.log(f"[bold red]Failed to generate proposal for {pkg_name}:[/bold red] {exc}")
-            # Step 6: Return fallback proposal with action='manual_review'
-            proposal = _build_fallback_proposal(pkg_name, pinned_ver, str(exc))
-
-        proposals.append(proposal)
-
-    # Print summary table
-    print_proposals_summary(proposals)
-    return proposals
-
-
-def print_proposals_summary(proposals: list[dict[str, Any]]) -> None:
-    """Print an attractive summary table of generated proposals."""
-    table = Table(
-        title="[bold green]GemmaMorph: Certified Migration Proposals (Stage 4)[/bold green]",
-        box=box.ROUNDED,
-        header_style="bold magenta",
-        title_style="bold green",
-    )
-    table.add_column("Dependency", style="bold cyan", min_width=15)
-    table.add_column("Action", justify="center", min_width=12)
-    table.add_column("Replacement", style="bold yellow", min_width=18)
-    table.add_column("Code Edits", justify="center", width=12)
-    table.add_column("Source", justify="center", width=15)
-    table.add_column("Reasoning", style="dim", min_width=30)
-
-    for p in proposals:
-        act = p.get("action", "unknown").lower()
-        if act in ("replace", "upgrade"):
-            act_styled = f"[bold green]{act.upper()}[/bold green]"
-        elif act == "remove":
-            act_styled = f"[bold red]{act.upper()}[/bold red]"
-        else:
-            act_styled = f"[bold yellow]{act.upper()}[/bold yellow]"
-
-        rep = p.get("replacement_package") or "-"
-        ver = p.get("replacement_version")
-        if ver and rep != "-":
-            rep = f"{rep} ({ver})"
-
-        edits_count = str(len(p.get("code_edits", [])))
-        src = f"[bold]{p.get('source', 'AI-PROPOSED')}[/bold]"
-        reasoning = p.get("reasoning", "")
-        if len(reasoning) > 40:
-            reasoning = reasoning[:37] + "..."
-
-        table.add_row(
-            p.get("dependency", "unknown"),
-            act_styled,
-            rep,
-            edits_count,
-            src,
-            reasoning,
-        )
-
-    console.print(table)
-
+    failed = [f"{p.dependency}: {p.error}" for p in proposals if p.error]
+    status = StageStatus("propose")
+    if failed:
+        status = StageStatus("propose", FAILED, error=f"{len(failed)} of {len(proposals)} proposals failed: " + " | ".join(failed))
+    log(f"  {len(proposals) - len(failed)} proposals, {len(failed)} failed")
+    return ProposalResult(proposals=proposals, status=status)
