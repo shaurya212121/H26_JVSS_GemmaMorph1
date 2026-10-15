@@ -244,3 +244,35 @@ def test_page_scripts_are_valid_javascript(tmp_path):
         js.write_text("\n;\n".join(scripts), encoding="utf-8")
         result = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
         assert result.returncode == 0, f"{name} page: {result.stderr}"
+
+
+def test_static_javascript_is_valid():
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    result = subprocess.run([node, "--check", str(ui.STATIC_DIR / "gemmamorph.js")], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_static_assets_are_served_and_nothing_else(server):
+    base, _ = server
+    status, body, headers = get(base + "/static/gemmamorph.css")
+    assert status == 200 and headers["Content-Type"].startswith("text/css") and ".panel" in body
+    status, body, headers = get(base + "/static/gemmamorph.js")
+    assert status == 200 and "javascript" in headers["Content-Type"] and "startBackground" in body
+    assert get(base + "/static/..%2Fui.py")[0] == 404
+    assert get(base + "/static/other.js")[0] == 404
+
+
+def test_pages_link_the_assets_and_need_no_external_resources(tmp_path):
+    pages = (ui.index_page(tmp_path), ui.run_page(ui.Run("abcdef012345", "D:/x", tmp_path, [])), ui.message_page("Oops", "<b>x</b>"))
+    for page_bytes in pages:
+        text = page_bytes.decode("utf-8")
+        assert "/static/gemmamorph.css" in text and "/static/gemmamorph.js" in text
+        assert "https://" not in text and "http://" not in text.replace("http://localhost:11434", "")
+    assert "&lt;b&gt;x&lt;/b&gt;" in pages[2].decode("utf-8")
+    for asset in ("gemmamorph.css", "gemmamorph.js"):
+        content = (ui.STATIC_DIR / asset).read_text(encoding="utf-8")
+        assert "https://" not in content and "http://" not in content

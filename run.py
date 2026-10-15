@@ -68,18 +68,27 @@ def execute(name: str, fn: Callable[[], Any]) -> Stage:
     try:
         value = fn()
     except Exception as exc:  # a stage failing must not stop the report from being written
-        return Stage(name, StageStatus(name, FAILED, error=f"{type(exc).__name__}: {exc}"))
-    status = getattr(value, "status", None)
-    if isinstance(status, StageStatus):  # the stage may itself report a partial failure
-        status.stage = name
+        stage = Stage(name, StageStatus(name, FAILED, error=f"{type(exc).__name__}: {exc}"))
     else:
-        status = StageStatus(name, OK)
+        status = getattr(value, "status", None)
+        if isinstance(status, StageStatus):  # the stage may itself report a partial failure
+            status.stage = name
+        else:
+            status = StageStatus(name, OK)
+        stage = Stage(name, status, value)
     log(f"    ({time.monotonic() - started:.1f}s)")
-    return Stage(name, status, value)
+    log(status_line(stage))  # as each stage ends, so a live viewer can follow progress
+    return stage
 
 
 def skipped(name: str, reason: str) -> Stage:
-    return Stage(name, StageStatus(name, SKIPPED, skip_reason=reason))
+    stage = Stage(name, StageStatus(name, SKIPPED, skip_reason=reason))
+    log(status_line(stage))
+    return stage
+
+
+def status_line(stage: Stage) -> str:
+    return f"[{stage.status.status:7}] {stage.name:13} {describe(stage)}"
 
 
 def waiting_on(*deps: Stage) -> Optional[str]:
@@ -122,6 +131,8 @@ def describe(stage: Stage) -> str:
         return f"{sum(1 for p in v.proposals if not p.error)} proposals, {sum(1 for p in v.proposals if p.error)} without"
     if isinstance(v, RehearsalResult):
         return f"{len(v.comparisons)} runs compared, {len(v.gaps)} gaps"
+    if isinstance(v, list):
+        return f"{len(v)} files written"
     return "done"
 
 
@@ -220,7 +231,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     print()
     for s in stages:
-        print(f"[{s.status.status:7}] {s.name:13} {describe(s)}")
+        print(status_line(s))
     for path in paths:
         print(f"output: {path}")
     failed = [s.name for s in stages if s.status.status == FAILED]
