@@ -1,503 +1,488 @@
 """
-Stage 3: AST-Based Dependency Usage Finder for GemmaMorph.
+Stage 3: AST-based dependency usage finder.
 
-Scans the target repository using Python's standard `ast` library to identify
-exact file locations, line numbers, import statements, API symbols, and call sites
-for monitored dependencies.
+Scans every Python file in a target repository using Python's standard `ast`
+module, locating every import, attribute access, private API call, and monkeypatch
+associated with flagged dependencies.
+
+Complies strictly with the shared data contract in depexit.models.
+No external dependencies (uses standard library only). No hard-coded mappings.
 """
 
 from __future__ import annotations
 
 import ast
+import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from rich import box
-from rich.console import Console
-from rich.table import Table
+from depexit.log import log
+from depexit.models import OK, StageStatus, Usage, UsageResult, VERIFIED
 
-console = Console()
-
-# Canonical mapping from PyPI package names to top-level importable module names
-KNOWN_PACKAGE_MODULE_MAP: dict[str, list[str]] = {
-    "python-dateutil": ["dateutil"],
-    "setuptools": ["setuptools", "pkg_resources", "distutils"],
-    "pyyaml": ["yaml"],
-    "jinja2": ["jinja2"],
-    "beautifulsoup4": ["bs4"],
-    "pillow": ["PIL"],
-    "scikit-learn": ["sklearn"],
-    "opencv-python": ["cv2"],
-    "appdirs": ["appdirs"],
-    "toml": ["toml"],
-    "pydantic": ["pydantic"],
-    "requests": ["requests"],
-    "six": ["six"],
-    "chardet": ["chardet"],
-    "idna": ["idna"],
-    "click": ["click"],
-}
-
-# Directories to exclude from AST scanning
-IGNORED_DIRS: set[str] = {
+# Directories to unconditionally skip during repository traversal
+SKIP_DIRS = {
     ".git",
-    "__pycache__",
     ".venv",
     "venv",
+    "venvs",
     "env",
+    "node_modules",
+    "__pycache__",
     ".tox",
+    ".eggs",
     "build",
     "dist",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".eggs",
 }
 
 
-def normalize_package_name(pkg: str) -> str:
-    """Normalize a package name to canonical lowercase with hyphens."""
-    return pkg.strip().lower().replace("_", "-")
+def _normalize_name(name: str) -> str:
+    """Normalize a package distribution name to lowercase-hyphen format."""
+    return re.sub(r"[-_.]+", "-", name).strip().lower()
 
 
-def build_package_module_lookups(dependencies: list[str]) -> tuple[dict[str, list[str]], dict[str, str]]:
+def _is_private_symbol(name: str) -> bool:
+    """True if name starts with a single underscore and is not a dunder."""
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__")) and len(name) > 1
+
+
+def _extract_snippet(lines: list[str], target_line: int, context: int = 2) -> str:
     """
-    Build bidirectional lookup tables between package names and module names.
-    Returns:
-        (pkg_to_modules, module_to_pkg)
-    """
-    pkg_to_modules: dict[str, list[str]] = {}
-    module_to_pkg: dict[str, str] = {}
-
-    for dep in dependencies:
-        canonical_pkg = normalize_package_name(dep)
-        modules = set()
-
-        # Check known dictionary
-        if canonical_pkg in KNOWN_PACKAGE_MODULE_MAP:
-            modules.update(KNOWN_PACKAGE_MODULE_MAP[canonical_pkg])
-
-        # Add default inferred module names
-        clean_name = canonical_pkg.replace("-", "_")
-        modules.add(clean_name)
-        modules.add(canonical_pkg)
-
-        module_list = sorted(list(modules))
-        pkg_to_modules[dep] = module_list
-
-        for mod in module_list:
-            module_to_pkg[mod.lower()] = dep
-
-    return pkg_to_modules, module_to_pkg
-
-
-def extract_context_snippet(lines: list[str], lineno: int, window: int = 3) -> str:
-    """
-    Extract 3 lines above and 3 lines below the target line number.
-    Returns a formatted multi-line string with line numbers and pointer.
+    Extract raw source lines around target_line (1-based), preserving exact whitespace.
+    Returns target_line plus `context` lines each side, copy-pasteable verbatim.
     """
     if not lines:
         return ""
-    start_idx = max(0, lineno - 1 - window)
-    end_idx = min(len(lines), lineno + window)
-
-    snippet_lines: list[str] = []
-    for idx in range(start_idx, end_idx):
-        current_no = idx + 1
-        marker = "-> " if current_no == lineno else "   "
-        line_content = lines[idx] if idx < len(lines) else ""
-        snippet_lines.append(f"{marker}{current_no:4d} | {line_content}")
-
-    return "\n".join(snippet_lines)
+    idx = max(0, target_line - 1)
+    start = max(0, idx - context)
+    end = min(len(lines), idx + context + 1)
+    return "".join(lines[start:end])
 
 
-def get_full_statement_text(lines: list[str], node: ast.AST) -> str:
-    """Extract full source text corresponding to an AST node spanning one or more lines."""
-    start_line = getattr(node, "lineno", 1) - 1
-    end_line = getattr(node, "end_lineno", getattr(node, "lineno", 1))
-    if 0 <= start_line < len(lines):
-        return "\n".join(lines[start_line:end_line]).strip()
-    return ""
-
-
-def get_attribute_chain(node: ast.AST) -> Optional[tuple[str, str]]:
+def _reconstruct_attribute_chain(node: ast.AST) -> Optional[tuple[str, ast.AST]]:
     """
-    Given an ast.Attribute or ast.Call, trace the root name and full attribute path.
-    Example: `toml.load` -> root='toml', full_path='toml.load'
-             `requests.Session.request` -> root='requests', full_path='requests.Session.request'
+    If node is an Attribute chain (e.g. a.b.c or Name 'a'), reconstruct dotted name.
+    Returns (dotted_string, root_node) or None.
     """
-    parts: list[str] = []
+    parts = []
     curr = node
     while isinstance(curr, ast.Attribute):
         parts.append(curr.attr)
         curr = curr.value
-
     if isinstance(curr, ast.Name):
         parts.append(curr.id)
-        parts.reverse()
-        root = parts[0]
-        full_path = ".".join(parts)
-        return root, full_path
-
+        return ".".join(reversed(parts)), curr
     return None
 
 
-class RepoUsageVisitor(ast.NodeVisitor):
-    """AST Visitor that tracks module imports and all subsequent usage sites."""
+class _FileUsageVisitor(ast.NodeVisitor):
+    """
+    AST visitor scoped to a single file. Identifies imports, attribute uses,
+    private API usages, and monkeypatching.
+    """
 
     def __init__(
         self,
-        rel_path: str,
+        rel_file: str,
         source_lines: list[str],
-        module_to_pkg: dict[str, str],
+        module_to_dists: dict[str, list[str]],
     ):
-        self.rel_path = rel_path
+        self.rel_file = rel_file
         self.source_lines = source_lines
-        self.module_to_pkg = module_to_pkg
+        self.module_to_dists = module_to_dists
 
-        # Maps bound local name -> dict info
-        # e.g., 'user_cache_dir' -> {'pkg': 'appdirs', 'api': 'user_cache_dir', 'stmt': '...'}
-        self.bound_symbols: dict[str, dict[str, Any]] = {}
+        # Local alias mapping: local_name -> (canonical_dotted_origin, top_module)
+        # e.g. import requests as req -> "req": ("requests", "requests")
+        # e.g. from requests.utils import quote as q -> "q": ("requests.utils.quote", "requests")
+        self.aliases: dict[str, tuple[str, str]] = {}
 
-        # Maps bound module alias -> dict info
-        # e.g., 'toml' -> {'pkg': 'toml', 'stmt': 'import toml'}
-        self.bound_modules: dict[str, dict[str, Any]] = {}
+        # Stack of enclosing function/class definitions
+        self.scope_stack: list[str] = []
 
-        # Collected usages: pkg_name -> list[record]
-        self.usages_by_pkg: dict[str, list[dict[str, Any]]] = {}
+        # Collected usages: list of Usage objects
+        self.usages: list[Usage] = []
 
-        # Dedup key set: (lineno, usage_type, api_names_str)
-        self._seen: set[tuple[int, str, str]] = set()
+        # Parent tracking to find outermost attribute chains only
+        self.parent_map: dict[int, ast.AST] = {}
 
-    def _record_usage(
+    def _current_scope(self) -> str:
+        return ".".join(self.scope_stack)
+
+    def _record(
         self,
-        pkg: str,
-        lineno: int,
-        usage_type: str,
-        import_stmt: str,
-        api_names: list[str],
-        code_line: str,
+        line: int,
+        symbol: str,
+        dist: str,
+        kind: str,
     ) -> None:
-        """Add a usage record with context snippet, avoiding duplicates."""
-        api_key = ",".join(sorted(api_names))
-        dedup_key = (lineno, usage_type, api_key)
-        if dedup_key in self._seen:
-            return
-        self._seen.add(dedup_key)
+        snippet = _extract_snippet(self.source_lines, line)
+        self.usages.append(
+            Usage(
+                file=self.rel_file,
+                line=line,
+                symbol=symbol,
+                snippet=snippet,
+                dependency=dist,
+                kind=kind,
+                function=self._current_scope(),
+                tag=VERIFIED,
+            )
+        )
 
-        record = {
-            "file_path": self.rel_path,
-            "line_number": lineno,
-            "usage_type": usage_type,
-            "import_statement": import_stmt,
-            "api_names": api_names,
-            "code_line": code_line,
-            "context_snippet": extract_context_snippet(self.source_lines, lineno),
-        }
+    # ---------------------------------------------------------------- Scope Tracking
 
-        self.usages_by_pkg.setdefault(pkg, []).append(record)
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.scope_stack.append(node.name)
+        self.generic_visit(node)
+        self.scope_stack.pop()
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self.scope_stack.append(node.name)
+        self.generic_visit(node)
+        self.scope_stack.pop()
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.scope_stack.append(node.name)
+        self.generic_visit(node)
+        self.scope_stack.pop()
+
+    # ---------------------------------------------------------------- Imports
 
     def visit_Import(self, node: ast.Import) -> None:
-        """Handle `import X` and `import X as Y` statements."""
-        stmt_text = get_full_statement_text(self.source_lines, node)
-
         for alias in node.names:
-            root_module = alias.name.split(".")[0].lower()
-            if root_module in self.module_to_pkg:
-                pkg = self.module_to_pkg[root_module]
-                bound_name = alias.asname or alias.name
-                self.bound_modules[bound_name] = {
-                    "pkg": pkg,
-                    "module": alias.name,
-                    "import_statement": stmt_text,
-                }
+            top_mod = alias.name.split(".")[0]
+            if top_mod in self.module_to_dists:
+                local_name = alias.asname or alias.name
+                self.aliases[local_name] = (alias.name, top_mod)
 
-                code_line = (
-                    self.source_lines[node.lineno - 1]
-                    if node.lineno <= len(self.source_lines)
-                    else stmt_text
-                )
+                # Check if any component in the imported name is private
+                parts = alias.name.split(".")
+                is_private = any(_is_private_symbol(p) for p in parts)
+                kind = "private-api" if is_private else "import"
 
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=node.lineno,
-                    usage_type="import",
-                    import_stmt=stmt_text,
-                    api_names=[alias.name],
-                    code_line=code_line,
-                )
-
+                for dist in self.module_to_dists[top_mod]:
+                    self._record(
+                        line=node.lineno,
+                        symbol=alias.name,
+                        dist=dist,
+                        kind=kind,
+                    )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        """Handle `from X import Y` and `from X.sub import Z` statements."""
-        stmt_text = get_full_statement_text(self.source_lines, node)
+        # Ignore relative imports (level > 0)
+        if node.level and node.level > 0:
+            self.generic_visit(node)
+            return
 
-        if node.module:
-            root_module = node.module.split(".")[0].lower()
-            if root_module in self.module_to_pkg:
-                pkg = self.module_to_pkg[root_module]
-                imported_names = [alias.name for alias in node.names]
+        if not node.module:
+            self.generic_visit(node)
+            return
 
-                # Bind imported names for downstream call detection
-                for alias in node.names:
-                    bound_name = alias.asname or alias.name
-                    self.bound_symbols[bound_name] = {
-                        "pkg": pkg,
-                        "full_api": f"{node.module}.{alias.name}",
-                        "api_name": alias.name,
-                        "import_statement": stmt_text,
-                    }
+        top_mod = node.module.split(".")[0]
+        if top_mod in self.module_to_dists:
+            module_private = any(_is_private_symbol(p) for p in node.module.split("."))
+            for alias in node.names:
+                full_symbol = f"{node.module}.{alias.name}"
+                local_name = alias.asname or alias.name
+                self.aliases[local_name] = (full_symbol, top_mod)
 
-                code_line = (
-                    self.source_lines[node.lineno - 1]
-                    if node.lineno <= len(self.source_lines)
-                    else stmt_text
-                )
+                is_private = module_private or _is_private_symbol(alias.name)
+                kind = "private-api" if is_private else "import"
 
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=node.lineno,
-                    usage_type="import",
-                    import_stmt=stmt_text,
-                    api_names=imported_names,
-                    code_line=code_line,
-                )
-
+                for dist in self.module_to_dists[top_mod]:
+                    self._record(
+                        line=node.lineno,
+                        symbol=full_symbol,
+                        dist=dist,
+                        kind=kind,
+                    )
         self.generic_visit(node)
+
+    # ---------------------------------------------------------------- Attributes
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        """Handle `module.function()`, `module.attribute`, or chained calls."""
-        chain = get_attribute_chain(node)
-        if chain:
-            root_name, full_path = chain
-            # Check if root is a bound module import (e.g., toml.load, requests.Session)
-            if root_name in self.bound_modules:
-                mod_info = self.bound_modules[root_name]
-                pkg = mod_info["pkg"]
-                code_line = (
-                    self.source_lines[node.lineno - 1]
-                    if node.lineno <= len(self.source_lines)
-                    else ""
-                )
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=node.lineno,
-                    usage_type="attribute_call",
-                    import_stmt=mod_info["import_statement"],
-                    api_names=[node.attr],
-                    code_line=code_line,
-                )
-            # Direct check if root matches known module name directly
-            elif root_name.lower() in self.module_to_pkg:
-                pkg = self.module_to_pkg[root_name.lower()]
-                code_line = (
-                    self.source_lines[node.lineno - 1]
-                    if node.lineno <= len(self.source_lines)
-                    else ""
-                )
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=node.lineno,
-                    usage_type="attribute_call",
-                    import_stmt=f"import {root_name}",
-                    api_names=[node.attr],
-                    code_line=code_line,
-                )
+        # We only record the outermost attribute chain
+        parent = self.parent_map.get(id(node))
+        if isinstance(parent, ast.Attribute):
+            # Inner chain, skip recording here; will be handled by outer Attribute
+            self.generic_visit(node)
+            return
+
+        resolved = _reconstruct_attribute_chain(node)
+        if resolved:
+            chain_str, root = resolved
+            if isinstance(root, ast.Name) and root.id in self.aliases:
+                origin_symbol, top_mod = self.aliases[root.id]
+                # Replace root alias with its origin
+                parts = chain_str.split(".")
+                suffix = ".".join(parts[1:])
+                full_symbol = f"{origin_symbol}.{suffix}" if suffix else origin_symbol
+
+                # Check if this attribute access is a monkeypatch assignment target
+                # (Attribute assignments are handled in visit_Assign / visit_AugAssign / visit_Delete)
+                if not self._is_assignment_target(node):
+                    is_private = any(_is_private_symbol(p) for p in full_symbol.split("."))
+                    kind = "private-api" if is_private else "attribute"
+                    if top_mod in self.module_to_dists:
+                        for dist in self.module_to_dists[top_mod]:
+                            self._record(
+                                line=node.lineno,
+                                symbol=full_symbol,
+                                dist=dist,
+                                kind=kind,
+                            )
 
         self.generic_visit(node)
+
+    def _is_assignment_target(self, node: ast.AST) -> bool:
+        """Check if node is an assignment, augassign, or delete target."""
+        parent = self.parent_map.get(id(node))
+        if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+            if node in getattr(parent, "targets", []) or getattr(parent, "target", None) is node:
+                return True
+        elif isinstance(parent, (ast.AugAssign, ast.Delete)):
+            if getattr(parent, "target", None) is node or node in getattr(parent, "targets", []):
+                return True
+        return False
+
+    # ---------------------------------------------------------------- Monkeypatching
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for target in node.targets:
+            self._check_monkeypatch_target(target, node.lineno)
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        self._check_monkeypatch_target(node.target, node.lineno)
+        self.generic_visit(node)
+
+    def visit_Delete(self, node: ast.Delete) -> None:
+        for target in node.targets:
+            self._check_monkeypatch_target(target, node.lineno)
+        self.generic_visit(node)
+
+    def _check_monkeypatch_target(self, target: ast.AST, lineno: int) -> None:
+        resolved = _reconstruct_attribute_chain(target)
+        if resolved:
+            chain_str, root = resolved
+            if isinstance(root, ast.Name) and root.id in self.aliases:
+                origin_symbol, top_mod = self.aliases[root.id]
+                parts = chain_str.split(".")
+                suffix = ".".join(parts[1:])
+                full_symbol = f"{origin_symbol}.{suffix}" if suffix else origin_symbol
+                if top_mod in self.module_to_dists:
+                    for dist in self.module_to_dists[top_mod]:
+                        self._record(
+                            line=lineno,
+                            symbol=full_symbol,
+                            dist=dist,
+                            kind="monkeypatch",
+                        )
 
     def visit_Call(self, node: ast.Call) -> None:
-        """Handle direct calls like `user_cache_dir("linkwatch")` or `load_settings()`."""
-        # Direct function call to an imported symbol: e.g. user_cache_dir(...)
+        # 1. setattr(flagged_module, 'attr', value)
+        func_name = None
         if isinstance(node.func, ast.Name):
             func_name = node.func.id
-            if func_name in self.bound_symbols:
-                sym_info = self.bound_symbols[func_name]
-                pkg = sym_info["pkg"]
-                code_line = (
-                    self.source_lines[node.lineno - 1]
-                    if node.lineno <= len(self.source_lines)
-                    else ""
-                )
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=node.lineno,
-                    usage_type="call",
-                    import_stmt=sym_info["import_statement"],
-                    api_names=[sym_info["api_name"]],
-                    code_line=code_line,
-                )
+        elif isinstance(node.func, ast.Attribute):
+            func_name = node.func.attr
 
-        self.generic_visit(node)
+        if func_name == "setattr" and len(node.args) >= 2:
+            first_arg = node.args[0]
+            resolved = _reconstruct_attribute_chain(first_arg)
+            if resolved:
+                chain_str, root = resolved
+                if isinstance(root, ast.Name) and root.id in self.aliases:
+                    origin_symbol, top_mod = self.aliases[root.id]
+                    parts = chain_str.split(".")
+                    suffix = ".".join(parts[1:])
+                    full_symbol = f"{origin_symbol}.{suffix}" if suffix else origin_symbol
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        """Handle class definitions inheriting from monitored base classes (e.g. BaseModel)."""
-        for base in node.bases:
-            if isinstance(base, ast.Name) and base.id in self.bound_symbols:
-                sym_info = self.bound_symbols[base.id]
-                pkg = sym_info["pkg"]
-                code_line = (
-                    self.source_lines[node.lineno - 1]
-                    if node.lineno <= len(self.source_lines)
-                    else ""
-                )
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=node.lineno,
-                    usage_type="base_class",
-                    import_stmt=sym_info["import_statement"],
-                    api_names=[sym_info["api_name"]],
-                    code_line=code_line,
-                )
+                    attr_name = ""
+                    if isinstance(node.args[1], ast.Constant) and isinstance(node.args[1].value, str):
+                        attr_name = f".{node.args[1].value}"
 
-        self.generic_visit(node)
+                    if top_mod in self.module_to_dists:
+                        for dist in self.module_to_dists[top_mod]:
+                            self._record(
+                                line=node.lineno,
+                                symbol=f"{full_symbol}{attr_name}",
+                                dist=dist,
+                                kind="monkeypatch",
+                            )
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        """Handle decorator usages like @validator("name")."""
-        for decorator in node.decorator_list:
-            dec_name = None
-            if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name):
-                dec_name = decorator.func.id
-            elif isinstance(decorator, ast.Name):
-                dec_name = decorator.id
+        # 2. mock.patch("flagged.module.attr") / monkeypatch.setattr("flagged.module.attr", ...)
+        # Detect calls where any string argument starts with a flagged module name
+        is_patch_call = False
+        if func_name in ("patch", "setattr"):
+            is_patch_call = True
+        elif isinstance(node.func, ast.Attribute):
+            full_func_resolved = _reconstruct_attribute_chain(node.func)
+            if full_func_resolved:
+                fn_str = full_func_resolved[0]
+                if any(k in fn_str for k in ("mock.patch", "monkeypatch.setattr", "patch.object")):
+                    is_patch_call = True
 
-            if dec_name and dec_name in self.bound_symbols:
-                sym_info = self.bound_symbols[dec_name]
-                pkg = sym_info["pkg"]
-                code_line = (
-                    self.source_lines[decorator.lineno - 1]
-                    if decorator.lineno <= len(self.source_lines)
-                    else ""
-                )
-                self._record_usage(
-                    pkg=pkg,
-                    lineno=decorator.lineno,
-                    usage_type="decorator",
-                    import_stmt=sym_info["import_statement"],
-                    api_names=[sym_info["api_name"]],
-                    code_line=code_line,
-                )
+        if is_patch_call and node.args:
+            first_arg = node.args[0]
+            if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
+                target_str = first_arg.value
+                top_part = target_str.split(".")[0]
+                if top_part in self.module_to_dists:
+                    for dist in self.module_to_dists[top_part]:
+                        self._record(
+                            line=node.lineno,
+                            symbol=target_str,
+                            dist=dist,
+                            kind="monkeypatch",
+                        )
 
         self.generic_visit(node)
 
 
-def find_usages(repo_path: Path, dependencies: list[str]) -> dict[str, list[dict[str, Any]]]:
+def find_usages(
+    repo: Path,
+    flagged: list[str],
+    module_map: dict[str, list[str]],
+) -> UsageResult:
     """
-    Scan repo_path using AST to find all usages of specified dependencies.
+    Find all usages of flagged dependencies across all .py files in repo.
 
-    Args:
-        repo_path: Absolute or relative Path to target repository root.
-        dependencies: List of dependency names to search for (e.g. ['toml', 'appdirs', 'six']).
+    Parameters:
+        repo: Root path of the target repository.
+        flagged: Normalized distribution names (e.g. 'jinja2', 'requests').
+        module_map: Top-level import name -> list of normalized dist names.
 
     Returns:
-        Dictionary mapping package_name -> list of usage records.
+        UsageResult with usages mapped per distribution and any file notes.
     """
-    repo_path = Path(repo_path).resolve()
-    if not repo_path.is_dir():
-        console.log(f"[bold red]Error:[/bold red] Target repo path not found: {repo_path}")
-        return {dep: [] for dep in dependencies}
+    repo = Path(repo).resolve()
+    normalized_flagged = [_normalize_name(f) for f in flagged]
+    flagged_set = set(normalized_flagged)
 
-    pkg_to_modules, module_to_pkg = build_package_module_lookups(dependencies)
+    notes: list[str] = []
 
-    # Initialize results dict
-    results: dict[str, list[dict[str, Any]]] = {dep: [] for dep in dependencies}
+    # Map top-level importable module -> list of flagged distribution names
+    module_to_flagged_dists: dict[str, list[str]] = {}
+    dists_with_modules: set[str] = set()
 
-    # Discover all .py files in repo, respecting ignore list
+    for mod, dists in module_map.items():
+        matched_dists = [_normalize_name(d) for d in dists if _normalize_name(d) in flagged_set]
+        if matched_dists:
+            module_to_flagged_dists[mod] = matched_dists
+            for d in matched_dists:
+                dists_with_modules.add(d)
+
+    # Note any flagged distribution that has no associated module in module_map
+    for dist in normalized_flagged:
+        if dist not in dists_with_modules:
+            notes.append(f"flagged dependency '{dist}' has no top-level module in module_map")
+
+    # Initialize usage lists for every flagged distribution
+    usages_by_dist: dict[str, list[Usage]] = {d: [] for d in normalized_flagged}
+
+    if not repo.exists() or not repo.is_dir():
+        notes.append(f"repository directory does not exist: {repo}")
+        return UsageResult(usages=usages_by_dist, notes=notes, status=StageStatus("usage", status=OK))
+
+    log(f"Stage 3: Scanning AST in {repo} for {len(normalized_flagged)} flagged dependencies")
+
+    # Collect all python files, filtering out ignored directories
     py_files: list[Path] = []
-    for p in repo_path.rglob("*.py"):
-        # Check if any parent part is in IGNORED_DIRS
-        parts = set(p.relative_to(repo_path).parts)
-        if not parts.intersection(IGNORED_DIRS):
-            py_files.append(p)
+    for root, dirs, files in os.walk(repo):
+        # Prune ignored directories in-place
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+        for f in files:
+            if f.endswith(".py"):
+                py_files.append(Path(root) / f)
 
-    # Parse and analyze each python file
-    for py_file in py_files:
-        rel_path = py_file.relative_to(repo_path).as_posix()
+    py_files.sort()
+
+    for py_path in py_files:
         try:
-            source = py_file.read_text(encoding="utf-8", errors="replace")
-            source_lines = source.splitlines()
-            tree = ast.parse(source, filename=str(py_file))
-        except (SyntaxError, UnicodeDecodeError) as err:
-            console.log(f"[yellow]Skipping {rel_path} due to parse error: {err}[/yellow]")
+            rel_file = py_path.relative_to(repo).as_posix()
+        except ValueError:
+            rel_file = str(py_path).replace("\\", "/")
+
+        try:
+            source = py_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            notes.append(f"{rel_file}: read error: {exc}")
             continue
 
-        visitor = RepoUsageVisitor(rel_path, source_lines, module_to_pkg)
+        try:
+            tree = ast.parse(source, filename=rel_file)
+        except Exception as exc:
+            notes.append(f"{rel_file}: syntax error: {exc}")
+            continue
+
+        source_lines = source.splitlines(keepends=True)
+
+        visitor = _FileUsageVisitor(rel_file, source_lines, module_to_flagged_dists)
+
+        # Build parent map for outermost attribute chain detection
+        for parent in ast.walk(tree):
+            for child in ast.iter_child_nodes(parent):
+                visitor.parent_map[id(child)] = parent
+
         visitor.visit(tree)
 
-        # Merge findings
-        for pkg, usages in visitor.usages_by_pkg.items():
-            results.setdefault(pkg, []).extend(usages)
+        for u in visitor.usages:
+            if u.dependency in usages_by_dist:
+                usages_by_dist[u.dependency].append(u)
 
-    # Print formatted rich table summary
-    print_usage_summary_table(results)
+    # Deduplicate and sort by (file, line)
+    for dist in usages_by_dist:
+        seen: set[tuple[str, int, str, str]] = set()
+        deduped: list[Usage] = []
+        for u in usages_by_dist[dist]:
+            key = (u.file, u.line, u.symbol, u.kind)
+            if key not in seen:
+                seen.add(key)
+                deduped.append(u)
+        deduped.sort(key=lambda x: (x.file, x.line))
+        usages_by_dist[dist] = deduped
 
-    return results
+    total_usages = sum(len(v) for v in usages_by_dist.values())
+    log(f"Stage 3 complete: Found {total_usages} usages across {len(py_files)} files")
 
-
-def print_usage_summary_table(usages: dict[str, list[dict[str, Any]]]) -> None:
-    """Print an attractive rich summary table of dependency usages."""
-    table = Table(
-        title="[bold green]GemmaMorph: Dependency Usage Analysis (Stage 3)[/bold green]",
-        box=box.ROUNDED,
-        header_style="bold magenta",
-        title_style="bold green",
+    return UsageResult(
+        usages=usages_by_dist,
+        notes=notes,
+        status=StageStatus("usage", status=OK),
     )
-    table.add_column("Dependency", style="bold cyan", min_width=15)
-    table.add_column("Usages", justify="center", style="bold white", width=10)
-    table.add_column("Files Involved", style="dim", min_width=25)
-    table.add_column("Key APIs / Call Sites", style="yellow", min_width=30)
-    table.add_column("Status", justify="center", width=22)
-
-    for dep, records in usages.items():
-        count = len(records)
-        if count == 0:
-            table.add_row(
-                dep,
-                "0",
-                "-",
-                "None detected in AST",
-                "[bold yellow]Unused (Dead Import)[/bold yellow]",
-            )
-        else:
-            files = sorted(list({r["file_path"] for r in records}))
-            files_preview = ", ".join(files)
-            if len(files_preview) > 35:
-                files_preview = files_preview[:32] + "..."
-
-            apis = set()
-            for r in records:
-                apis.update(r.get("api_names", []))
-            apis_preview = ", ".join(sorted(list(apis)))
-            if len(apis_preview) > 35:
-                apis_preview = apis_preview[:32] + "..."
-
-            table.add_row(
-                dep,
-                str(count),
-                files_preview,
-                apis_preview,
-                "[bold green]Active Usage[/bold green]",
-            )
-
-    console.print(table)
 
 
 if __name__ == "__main__":
+    import importlib.metadata
+    import json
     import sys
 
-    # Quick test runner against LinkWatch or custom path
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent.parent / "LinkWatch"
-    deps_to_test = [
-        "toml",
-        "appdirs",
-        "pydantic",
-        "Jinja2",
-        "requests",
-        "six",
-        "chardet",
-        "setuptools",
-        "python-dateutil",
-    ]
-    console.print(f"[bold blue]Scanning repository:[/bold blue] {target}")
-    findings = find_usages(target, deps_to_test)
-    console.print(f"[bold green]Completed usage scan. Found usages for {len(findings)} dependencies.[/bold green]")
+    if len(sys.argv) < 3:
+        print("Usage: python -m depexit.usage_finder <repo_path> <dist1> [<dist2>...]", file=sys.stderr)
+        sys.exit(1)
+
+    target_repo = Path(sys.argv[1])
+    target_dists = sys.argv[2:]
+
+    # Build real module_map from current environment
+    raw_dist_map = importlib.metadata.packages_distributions()
+    normalized_module_map: dict[str, list[str]] = {
+        mod: [_normalize_name(d) for d in dists]
+        for mod, dists in raw_dist_map.items()
+    }
+
+    result = find_usages(target_repo, target_dists, normalized_module_map)
+
+    for dist, usages in result.usages.items():
+        print(f"\n=== Dependency: {dist} ({len(usages)} usages) ===")
+        for u in usages:
+            print(f"  {u.file}:{u.line} [{u.kind}] {u.symbol} (in '{u.function or '<module>'}')")
+            if u.kind in ("private-api", "monkeypatch"):
+                print(f"    -> Special kind: {u.kind}")
+
+    if result.notes:
+        print(f"\nNotes ({len(result.notes)}):")
+        for n in result.notes:
+            print(f"  * {n}")
