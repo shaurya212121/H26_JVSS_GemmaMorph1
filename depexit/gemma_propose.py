@@ -162,9 +162,11 @@ def propose_migrations(
             unreachable = str(exc)
             proposals.append(Proposal(dependency=name, error=f"model call failed: {exc}"))
 
-    failed = [f"{p.dependency}: {p.error}" for p in proposals if p.error]
+    failed = [p for p in proposals if p.error]
     status = StageStatus("propose")
     if failed:
-        status = StageStatus("propose", FAILED, error=f"{len(failed)} of {len(proposals)} proposals failed: " + " | ".join(failed))
+        cause = unreachable or failed[0].error  # each proposal keeps its own full error; the stage line states the cause once
+        status = StageStatus("propose", FAILED, error=(
+            f"{len(failed)} of {len(proposals)} proposals failed ({', '.join(p.dependency for p in failed)}). Cause: {cause[:240]}"))
     log(f"  {len(proposals) - len(failed)} proposals, {len(failed)} failed")
     return ProposalResult(proposals=proposals, status=status)
