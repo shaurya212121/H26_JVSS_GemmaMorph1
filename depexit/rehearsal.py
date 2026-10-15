@@ -161,11 +161,26 @@ def compare_runs(baseline: Optional[RunResult], run: RunResult) -> tuple[list[st
     return new_failures, newly_passing, sorted(after - before), sorted(before - after)
 
 
+def _error_line(output: str) -> str:
+    """The last pytest 'E ' line of the output (the real error), or the last non-empty line."""
+    lines = [l.strip() for l in output.splitlines() if l.strip()]
+    errors = [l for l in lines if l.startswith("E ")]
+    return (errors or lines or ["no output"])[-1][:300]
+
+
+def is_manifest(rel_file: str) -> bool:
+    name = Path(rel_file).name
+    return name == "pyproject.toml" or (name.startswith("requirements") and name.endswith(".txt"))
+
+
 def decide_verdict(p: Proposal, comp: Comparison, baseline: Optional[RunResult], applied_edits: int) -> None:
     """Set the proposal's verdict from a rehearsal of that proposal alone."""
     if not comp.install_ok:
         p.verdict, p.tag = "refuted", REFUTED
         p.verdict_reasons.append(f"install failed: {comp.run.stdout_tail.strip()[-300:] if comp.run else 'unknown error'}")
+    elif baseline is not None and baseline.tests and comp.run is not None and not comp.run.tests:
+        p.verdict, p.tag = "refuted", REFUTED
+        p.verdict_reasons.append(f"the test suite could not run (pytest exit {comp.run.exit_code}): {_error_line(comp.run.stdout_tail)}")
     elif comp.new_failures:
         p.verdict, p.tag = "refuted", REFUTED
         p.verdict_reasons.extend(f"new test failure: {n}" for n in comp.new_failures)
@@ -184,7 +199,12 @@ def decide_verdict(p: Proposal, comp: Comparison, baseline: Optional[RunResult],
         p.verdict_reasons.append("nothing to rehearse")
     else:
         p.verdict = "verified"
-        p.verdict_reasons.append(f"all baseline tests still pass; {len(comp.edit_coverage)} edit(s) executed by the tests")
+        parts = ["no test that passed in the baseline fails now"]
+        if comp.newly_passing:
+            parts.append(f"{len(comp.newly_passing)} test(s) that failed in the baseline now pass: {', '.join(comp.newly_passing[:3])}")
+        if comp.edit_coverage:
+            parts.append(f"{len(comp.edit_coverage)} edit(s) exercised by the tests")
+        p.verdict_reasons.append("; ".join(parts))
 
 
 # --------------------------------------------------------------------- patch
@@ -273,7 +293,10 @@ def _rehearse_run(label: str, repo: Path, proposals: list[Proposal], baseline: O
         cov = get_coverage_data(env, cov_file, work)
         coverage = []
         for p, edit, ae in applied:
-            ok, reason = edit_executed(cov, work, edit.file, ae.start_line, ae.end_line, deletion=not edit.new_text.strip())
+            if is_manifest(edit.file):  # coverage cannot measure a manifest: the install and the whole test run exercise it
+                ok, reason = True, "manifest change: installed, and the whole test suite ran against it"
+            else:
+                ok, reason = edit_executed(cov, work, edit.file, ae.start_line, ae.end_line, deletion=not edit.new_text.strip())
             coverage.append(EditCoverage(p.dependency, edit.file, ae.start_line, ae.end_line, ok, reason))
         failures, passing, added, removed = compare_runs(baseline, test_run.result)
         return Comparison(label=label, run=test_run.result, new_failures=failures, newly_passing=passing,
@@ -314,8 +337,12 @@ def rehearse(repo: Path, discovery: DiscoveryResult, baseline: Optional[RunResul
         comparisons.append(comp)
         decide_verdict(p, comp, baseline, applied)
 
-    if len(candidates) > 1:
-        comp, _, infra = _rehearse_run("combined", repo, candidates, baseline, gaps, notes, keep_sandbox,
+    survivors = [p for p in candidates if p.verdict != "refuted"]
+    if len(survivors) != len(candidates):
+        notes.append("refuted proposals are left out of the combined run and of proposed.patch: "
+                     + ", ".join(p.dependency for p in candidates if p.verdict == "refuted"))
+    if len(survivors) > 1:
+        comp, _, infra = _rehearse_run("combined", repo, survivors, baseline, gaps, notes, keep_sandbox,
                                        test_timeout, record_drops=False)
         if infra:
             infra_errors.append(infra)
@@ -326,7 +353,7 @@ def rehearse(repo: Path, discovery: DiscoveryResult, baseline: Optional[RunResul
             if not comp.install_ok:
                 gaps.append(f"[combined] install failed: {comp.run.stdout_tail if comp.run else ''}")
     elif candidates:
-        notes.append("a combined run was skipped: there is only one candidate proposal")
+        notes.append("a combined run was skipped: fewer than two proposals survived their own rehearsal")
 
     for comp in comparisons:
         for ec in comp.edit_coverage:
@@ -335,7 +362,7 @@ def rehearse(repo: Path, discovery: DiscoveryResult, baseline: Optional[RunResul
         if comp.warnings_added:
             gaps.append(f"[{comp.label}] {len(comp.warnings_added)} new warning(s) compared with the baseline")
 
-    patch_path = make_patch(repo, candidates, output_dir) if candidates else None
+    patch_path = make_patch(repo, survivors, output_dir) if survivors else None
     status = StageStatus("rehearse")
     if infra_errors:
         status = StageStatus("rehearse", FAILED, error="; ".join(infra_errors))

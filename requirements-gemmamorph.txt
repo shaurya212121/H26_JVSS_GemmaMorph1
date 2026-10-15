@@ -1,4 +1,4 @@
-python-dotenv>=1.0.0
-rich>=13.0.0
 requests>=2.31.0
 packaging>=22.0
+# only needed to run the offline tests (python -m pytest tests_depexit):
+pytest>=8

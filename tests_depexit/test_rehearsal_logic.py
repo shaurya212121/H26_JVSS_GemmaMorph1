@@ -131,3 +131,26 @@ def test_patch_is_none_when_nothing_changes(tmp_path):
     repo.mkdir()
     (repo / "m.py").write_text("x = 1\n", encoding="utf-8")
     assert make_patch(repo, [Proposal("p", edits=[Edit("m.py", "nope", "x")])], tmp_path / "out") is None
+
+
+def test_a_suite_that_cannot_run_is_refuted_with_the_real_error_line():
+    base = run_result({"a": "passed", "b": "passed"})
+    crashed = RunResult("p", [], 4, tests={}, stdout_tail="...\nE   NameError: name 'validator' is not defined\n")
+    p = Proposal("p", edits=[Edit("f.py", "a", "b")])
+    decide_verdict(p, Comparison(label="p", run=crashed, new_failures=["a", "b"]), base, 1)
+    assert p.verdict == "refuted" and p.tag == "REFUTED"
+    assert "could not run" in p.verdict_reasons[0] and "validator" in p.verdict_reasons[0]
+
+
+def test_verified_reason_mentions_tests_that_the_change_fixed():
+    base = run_result({"a": "passed", "b": "failed"})
+    comp = Comparison(label="p", run=run_result({"a": "passed", "b": "passed"}), newly_passing=["b"])
+    p = Proposal("p", requirements_change=RequirementsChange(add=["x>=2"]))
+    decide_verdict(p, comp, base, 0)
+    assert p.verdict == "verified" and "now pass: b" in p.verdict_reasons[0]
+
+
+def test_manifest_files_are_recognised():
+    from depexit.rehearsal import is_manifest
+    assert is_manifest("requirements.txt") and is_manifest("sub/requirements-dev.txt") and is_manifest("pyproject.toml")
+    assert not is_manifest("app/config.py") and not is_manifest("templates/report.j2")
