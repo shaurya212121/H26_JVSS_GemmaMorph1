@@ -49,6 +49,7 @@ class Run:
         self.start_error: Optional[str] = None
         self.ended: Optional[float] = None
         self.stopped = False
+        self.imported = False  # a finished report opened from disk, or a run from an earlier session
 
     def start(self) -> None:
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -107,12 +108,17 @@ def capsule_stats(out_dir: Path) -> Optional[dict]:
         verdict = "no proposal" if p.get("error") else p.get("verdict", "unrehearsed")
         counts[verdict] = counts.get(verdict, 0) + 1
         reasons = p.get("verdict_reasons") or []
+        rc = p.get("requirements_change") or {}
         rows.append({
             "dependency": p.get("dependency", ""),
             "replacement": p.get("replacement") or "",
             "verdict": verdict,
             "tag": p.get("tag", ""),
             "reason": (p.get("error") or (reasons[0] if reasons else p.get("rationale", "")))[:240],
+            "rationale": (p.get("rationale") or "")[:400],
+            "edits": [{"file": e.get("file", ""), "old": e.get("old_text", "")[:700], "new": e.get("new_text", "")[:700]}
+                      for e in (p.get("edits") or [])[:4]],
+            "remove": rc.get("remove") or [], "add": rc.get("add") or [],
         })
     rank = {k: i for i, k in enumerate(FINDING_ORDER)}
     findings = sorted(signals, key=lambda s: rank.get(s.get("kind", ""), 99))[:10]
@@ -129,16 +135,35 @@ def capsule_stats(out_dir: Path) -> Optional[dict]:
         "summary": capsule.get("summary"),
         "summary_error": capsule.get("summary_error"),
         "model": capsule.get("model", {}),
+        "repo": capsule.get("repo", ""),
+        "generated_at": capsule.get("generated_at", ""),
+        "stages": [{"stage": s.get("stage", ""), "status": s.get("status", ""),
+                    "detail": s.get("error") or s.get("skip_reason") or ""} for s in capsule.get("stages", [])],
     }
 
 
 def run_state(run: Run) -> dict:
     text = run.log_path.read_text(encoding="utf-8", errors="replace") if run.log_path.is_file() else ""
     info = parse_log(text)
+    stats = capsule_stats(run.out_dir)
     code = run.returncode
+    if run.imported:
+        m = re.search(r"exit code (\d+)", info["exit_line"] or "")
+        code = int(m.group(1)) if m else (0 if stats and all(s["status"] != "failed" for s in stats["stages"]) else 1 if stats else None)
+        if stats and all(s["state"] == "pending" for s in info["stages"]):  # no log: use the stage list stored in the capsule
+            by_suffix = {s["stage"].split(" ", 1)[-1]: s for s in stats["stages"]}
+            for st in info["stages"]:
+                src = by_suffix.get(st["name"].split(" ", 1)[1])
+                if src:
+                    st["state"], st["detail"] = src["status"], src["detail"]
+            if not by_suffix.get("capsule"):  # the capsule cannot record its own stage; it exists, so S6 completed
+                info["stages"][-1]["state"], info["stages"][-1]["detail"] = "ok", "report written"
+        run.ended = run.ended or run.started
     if code is not None and run.ended is None:
         run.ended = time.time()
-    if run.start_error:
+    if run.imported and code is None:
+        state = "interrupted"
+    elif run.start_error:
         state = "failed"
     elif run.stopped:
         state = "stopped"
@@ -148,10 +173,10 @@ def run_state(run: Run) -> dict:
         state = "finished" if code == 0 else "failed"
     files = [n for n in sorted(SERVED_FILES) if (run.out_dir / n).is_file()]
     return {
-        "id": run.id, "repo": run.repo, "state": state, "returncode": code, "error": run.start_error,
+        "id": run.id, "repo": run.repo, "state": state, "imported": run.imported, "returncode": code, "error": run.start_error,
         "elapsed": int((run.ended or time.time()) - run.started),
         "stages": info["stages"], "exit_line": info["exit_line"], "files": files,
-        "stats": capsule_stats(run.out_dir),
+        "stats": stats,
         "log_tail": "\n".join(text.splitlines()[-60:]),
     }
 
@@ -295,7 +320,18 @@ pre{background:#0d1020;color:#d9dcf5;border-radius:12px;padding:14px;overflow:au
 details summary{cursor:pointer;font-weight:700}
 iframe{width:100%;height:80vh;border:1px solid var(--line);border-radius:12px;background:#fff}
 .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.legend div{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--soft);font-size:.84rem}
-.legend b{display:block;margin-bottom:2px;font-size:.9rem}.foot{text-align:center;color:var(--muted);font-size:.82rem;margin-top:10px}a{color:var(--acc)}
+.legend b{display:block;margin-bottom:2px;font-size:.9rem}
+.openrow{display:flex;gap:12px;align-items:center}.openrow input{flex:1}@media(max-width:720px){.openrow{flex-direction:column;align-items:stretch}}
+button.go.ghost{margin-top:0;background:transparent;color:var(--acc);border:1.5px solid var(--acc);box-shadow:none;white-space:nowrap}
+.overview .stats{grid-template-columns:repeat(4,1fr)}@media(max-width:1000px){.overview .stats{grid-template-columns:repeat(2,1fr)}}
+.overview{display:grid;grid-template-columns:220px 1fr;gap:22px;align-items:center}@media(max-width:760px){.overview{grid-template-columns:1fr}}
+.donut{width:200px;height:200px;border-radius:50%;margin:auto;display:grid;place-items:center;position:relative}
+.donut::after{content:"";position:absolute;inset:26px;border-radius:50%;background:var(--card)}
+.donut div{position:relative;z-index:1;text-align:center}.donut b{display:block;font-size:2.3rem;line-height:1}.donut span{color:var(--muted);font-size:.78rem}
+.keys{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:12px;font-size:.8rem;color:var(--muted)}.keys i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.prop details{margin-top:10px}.prop summary{font-size:.82rem;color:var(--acc)}.prop .rat{font-style:italic}
+.diff{margin:8px 0 0;background:#0d1020;border-radius:10px;padding:10px;font:12px/1.5 Consolas,ui-monospace,monospace;white-space:pre-wrap;word-break:break-word;max-height:none}
+.diff .f{color:#9aa1c6}.diff .m{color:#ff8a8f;background:rgba(229,72,77,.12)}.diff .p{color:#7ee2a8;background:rgba(15,157,88,.14)}.foot{text-align:center;color:var(--muted);font-size:.82rem;margin-top:10px}a{color:var(--acc)}
 """
 
 TAGS = (("VERIFIED", "--t-verified", "a command we ran"), ("OBSERVED", "--t-observed", "real output or PyPI data"),
@@ -367,6 +403,10 @@ def index_page(runs_dir: Path) -> bytes:
 <div><label for="model">Gemma 4 model</label><input id="model" name="model" type="text" placeholder="gemma4:e2b"></div></div>
 <label for="base_url">Base URL</label><input id="base_url" name="base_url" type="text" placeholder="http://localhost:11434"></details>
 <button class="go" type="submit">Run GemmaMorph &rarr;</button></form></div>
+<div class="card"><h2>&#128194; Open a finished report</h2>
+<p class="sub">Already ran GemmaMorph? Open its output folder (the one with EXIT_CAPSULE.json) to see the results instantly.</p>
+<form method="post" action="/open" class="openrow"><input name="folder" type="text" placeholder="D:\\path\\to\\output" required autocomplete="off">
+<button class="go ghost" type="submit">Open report</button></form></div>
 <div class="card"><h2>&#128260; What happens</h2><div class="steps">{steps_html()}</div></div>
 <div class="card"><h2>&#127991;&#65039; Every claim is tagged</h2><div class="legend">{legend}</div></div>
 <div class="foot">Gemma 4 &middot; runs locally &middot; nothing leaves your machine in the default mode</div>"""
@@ -407,33 +447,46 @@ function hint(t){{t=t||'';
  if(/No module named/i.test(t))return'A Python module is missing. Install the project requirements (pip install -r requirements-gemmamorph.txt).';
  return'';}}
 const fmt=s=>Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s';
+function expandAll(){{const ds=[...document.querySelectorAll('.prop details')];const open=!ds.every(x=>x.open);ds.forEach(x=>x.open=open)}}
+function detail(p){{
+  const lines=(t,c,m)=>String(t).split('\\n').map(l=>'<span class="'+c+'">'+m+esc(l)+'</span>').join('\\n');
+  let body='';
+  if(p.rationale)body+='<p class="rat">&ldquo;'+esc(p.rationale)+'&rdquo;</p>';
+  p.edits.forEach(e=>{{body+='<div class="diff"><span class="f">'+esc(e.file)+'</span>\\n'+lines(e.old,'m','- ')+'\\n'+lines(e.new,'p','+ ')+'</div>'}});
+  if(p.remove.length||p.add.length)body+='<div class="diff"><span class="f">requirements</span>\\n'+(p.remove.length?lines(p.remove.join('\\n'),'m','- ')+'\\n':'')+(p.add.length?lines(p.add.join('\\n'),'p','+ '):'')+'</div>';
+  return body?'<details><summary>See what Gemma 4 proposed</summary>'+body+'</details>':'';
+}}
 function results(s){{
   if(!s)return'';const c=s.counts||{{}};
   const stat=(n,l,k)=>'<div class="stat '+(k||'')+'"><b>'+n+'</b><span>'+l+'</span></div>';
-  let h='<div class="card"><h2>&#128202; Results'+(s.model&&s.model.name?' <span class="hint">&middot; '+esc(s.model.name)+'</span>':'')+'</h2><div class="stats">'+
+  const V=c.verified||0,U=c.unproven||0,R=c.refuted||0,O=s.proposals.length-V-U-R,T=Math.max(s.proposals.length,1);
+  const a=V/T*100,b=a+U/T*100,r=b+R/T*100;
+  const donut='<div><div class="donut" style="background:conic-gradient(var(--t-verified) 0 '+a+'%,var(--t-proposed) '+a+'% '+b+'%,var(--t-refuted) '+b+'% '+r+'%,var(--line) '+r+'% 100%)"><div><b>'+s.proposals.length+'</b><span>Gemma 4<br>proposals</span></div></div>'+
+    '<div class="keys"><span><i style="background:var(--t-verified)"></i>verified '+V+'</span><span><i style="background:var(--t-proposed)"></i>unproven '+U+'</span><span><i style="background:var(--t-refuted)"></i>refuted '+R+'</span>'+(O>0?'<span><i style="background:var(--line)"></i>other '+O+'</span>':'')+'</div></div>';
+  let h='<div class="card"><h2>&#128202; Results'+(s.model&&s.model.name?' <span class="hint">&middot; '+esc(s.model.name)+(s.generated_at?' &middot; '+esc(s.generated_at):'')+'</span>':'')+'</h2><div class="overview">'+donut+'<div class="stats">'+
     stat(s.dependencies,'dependencies found')+stat(s.signals,'risk signals')+stat(s.flagged,'dependencies flagged')+stat(s.usages,'code usages traced')+
-    stat(c.verified||0,'proposals verified','v')+stat(c.unproven||0,'unproven','u')+stat(c.refuted||0,'refuted by the sandbox','r')+'</div></div>';
+    stat(V,'proposals verified','v')+stat(U,'unproven','u')+stat(R,'refuted by the sandbox','r')+'</div></div></div>';
   if(s.summary)h+='<div class="card"><h2>&#9997;&#65039; Summary <span class="badge b-ai-generated">AI-GENERATED</span></h2><div class="summary">'+esc(s.summary)+'</div></div>';
   else if(s.summary_error)h+='<div class="card"><h2>Summary</h2><p class="hint">unavailable: '+esc(s.summary_error)+'</p></div>';
   if(s.findings.length)h+='<div class="card"><h2>&#128161; Key findings</h2><div class="finds">'+s.findings.map(f=>{{const k=KIND[f.kind]||['\\u2022',f.kind];
     return'<div class="find"><div class="fi">'+k[0]+'</div><div><b>'+esc(k[1])+(f.dependency?' &middot; '+esc(f.dependency):'')+'</b> <span class="badge b-'+(f.tag==='VERIFIED'?'verified-tag':'observed')+'">'+esc(f.tag)+'</span><p>'+esc(f.detail)+'</p></div></div>'}}).join('')+'</div></div>';
-  if(s.proposals.length)h+='<div class="card"><h2>&#129302; Gemma 4 proposals and their rehearsal</h2><div class="props">'+
+  if(s.proposals.length)h+='<div class="card"><div class="head"><h2>&#129302; Gemma 4 proposals and their rehearsal</h2><button class="stop" style="border-color:var(--acc);color:var(--acc)" type="button" onclick="expandAll()">Expand all</button></div><div class="props">'+
     s.proposals.map(p=>'<div class="prop '+esc(p.verdict)+'"><h3>'+esc(p.dependency)+(p.replacement?' <span class="arrow">&rarr;</span> '+esc(p.replacement):'')+'</h3>'+
-    '<span class="badge '+cls(p.verdict)+'" title="'+esc(tip[p.verdict]||'')+'">'+esc(p.verdict)+'</span> <span class="badge b-'+esc((p.tag||'').toLowerCase())+'" title="Claim tag">'+esc(p.tag)+'</span><p>'+esc(p.reason)+'</p></div>').join('')+'</div></div>';
+    '<span class="badge '+cls(p.verdict)+'" title="'+esc(tip[p.verdict]||'')+'">'+esc(p.verdict)+'</span> <span class="badge b-'+esc((p.tag||'').toLowerCase())+'" title="Claim tag">'+esc(p.tag)+'</span><p>'+esc(p.reason)+'</p>'+detail(p)+'</div>').join('')+'</div></div>';
   return h;}}
 document.getElementById('stop').onclick=async()=>{{await fetch('/api/stop/'+id,{{method:'POST'}})}};
 async function tick(){{
   let d;try{{d=await (await fetch('/api/run/'+id)).json()}}catch(e){{setTimeout(tick,3000);return}}
-  const st=document.getElementById('state');st.className='state '+({{running:'running',finished:'ok',failed:'failed',stopped:'stopped'}}[d.state]);
-  st.textContent={{running:'Running...',finished:'\\u2705 Finished: all stages completed',stopped:'\\u23f9 Stopped',failed:'\\u26a0\\ufe0f Finished with problems'}}[d.state]+((d.state==='failed'&&d.exit_line)?' ('+d.exit_line+')':'');
-  document.getElementById('clock').textContent=fmt(d.elapsed);document.getElementById('stop').style.display=d.state==='running'?'':'none';
+  const st=document.getElementById('state');st.className='state '+({{running:'running',finished:'ok',failed:'failed',stopped:'stopped',interrupted:'stopped'}}[d.state]);
+  st.textContent={{running:'Running...',finished:'\\u2705 Finished: all stages completed',stopped:'\\u23f9 Stopped',interrupted:'\\u23f9 Interrupted before it finished',failed:'\\u26a0\\ufe0f Finished with problems'}}[d.state]+((d.state==='failed'&&d.exit_line)?' ('+d.exit_line+')':'');
+  document.getElementById('clock').textContent=d.imported?'opened from disk':fmt(d.elapsed);document.getElementById('stop').style.display=d.state==='running'?'':'none';
   let done=0,problem='';d.stages.forEach((s,i)=>{{const el=document.getElementById('s'+i);el.className='step '+s.state;
     if(s.state!=='pending')el.querySelector('.st').textContent=s.state==='running'?'working...':(s.detail||s.state);if(['ok','failed','skipped'].includes(s.state))done++;
     if(s.state==='failed'&&!problem)problem=s.detail}});
   document.getElementById('bar').style.width=(d.state==='running'?Math.max(done,0.4)/6*100:100)+'%';
   const hm=d.state==='failed'?(hint(problem+' '+d.log_tail)||hint(d.error||'')):'';
   document.getElementById('help').innerHTML=(d.state==='failed'||d.error)?'<div class="callout"><b>What went wrong</b><p style="margin:6px 0 0">'+esc(problem||d.error||'See the log below.')+'</p>'+(hm?'<p style="margin:8px 0 0">&#128161; '+esc(hm)+'</p>':'')+'</div>':'';
-  document.getElementById('log').textContent=d.log_tail;document.getElementById('results').innerHTML=results(d.stats);
+  document.getElementById('log').textContent=d.log_tail;document.getElementById('results').innerHTML=results(d.stats);if(location.hash==='#expand')document.querySelectorAll('.prop details').forEach(x=>x.open=true);
   if(d.files.length){{const l=document.getElementById('links');l.hidden=false;l.innerHTML='<h2>&#128193; Files</h2>'+d.files.map(f=>'<a href="/files/'+id+'/'+f+'" target="_blank" rel="noopener">'+esc(f)+'</a>').join('');
     if(!shown&&d.files.includes('EXIT_CAPSULE.html')&&d.state!=='running'){{shown=true;document.getElementById('viewer').innerHTML='<div class="card"><h2>&#128214; Exit Capsule</h2><iframe sandbox title="Exit Capsule" src="/files/'+id+'/EXIT_CAPSULE.html"></iframe></div>'}}}}
   if(d.state==='running')setTimeout(tick,2000);
@@ -485,6 +538,17 @@ def make_handler(runs_dir: Path, command_builder):
             parts = [p for p in urlparse(self.path).path.split("/") if p]
             if len(parts) == 3 and parts[:2] == ["api", "stop"] and parts[2] in RUNS:
                 return self._send(200, json.dumps({"stopped": stop_run(RUNS[parts[2]])}).encode("utf-8"), "application/json")
+            if urlparse(self.path).path == "/open":
+                length = int(self.headers.get("Content-Length") or 0)
+                form = {k: v[0] for k, v in parse_qs(self.rfile.read(min(length, 65536)).decode("utf-8", "replace")).items()}
+                try:
+                    run = open_report(form.get("folder", ""))
+                except ValueError as exc:
+                    return self._send(400, page("Error", f"<div class='card'><h2>Cannot open that report</h2><p>{html.escape(str(exc))}</p><p><a href='/'>Back</a></p></div>", hero=hero_html(small=True)))
+                self.send_response(HTTPStatus.SEE_OTHER)
+                self.send_header("Location", f"/run/{run.id}")
+                self.end_headers()
+                return
             if urlparse(self.path).path != "/run":
                 return self._not_found()
             length = int(self.headers.get("Content-Length") or 0)
@@ -500,8 +564,34 @@ def make_handler(runs_dir: Path, command_builder):
     return Handler
 
 
+def open_report(raw: str) -> Run:
+    """Show a finished report from disk (a folder containing EXIT_CAPSULE.json) without running anything."""
+    folder = Path(raw.strip().strip('"'))
+    if not (folder / "EXIT_CAPSULE.json").is_file():
+        raise ValueError(f"no EXIT_CAPSULE.json in: {raw or '(empty)'}")
+    stats = capsule_stats(folder)
+    run = Run(uuid.uuid4().hex[:12], (stats or {}).get("repo") or str(folder), folder, [])
+    run.imported = True
+    with LOCK:
+        RUNS[run.id] = run
+    return run
+
+
+def restore_runs(runs_dir: Path) -> None:
+    """Bring back runs from earlier sessions so their results stay one click away."""
+    for d in sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []:
+        log = d / "run.log"
+        if RUN_ID.match(d.name) and log.is_file() and d.name not in RUNS:
+            first = log.read_text(encoding="utf-8", errors="replace").split("\n", 1)[0]
+            m = re.search(r"repo=(.+?)\s+model=", first)
+            run = Run(d.name, m.group(1) if m else str(d), d, [])
+            run.imported, run.started = True, log.stat().st_mtime
+            RUNS[d.name] = run
+
+
 def serve(host: str, port: int, runs_dir: Path, command_builder=build_command) -> ThreadingHTTPServer:
     runs_dir.mkdir(parents=True, exist_ok=True)
+    restore_runs(runs_dir)
     return ThreadingHTTPServer((host, port), make_handler(runs_dir, command_builder))
 
 

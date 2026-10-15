@@ -196,3 +196,51 @@ def test_a_running_pipeline_can_be_stopped(tmp_path):
     state = ui.run_state(run)
     assert state["state"] == "stopped" and state["elapsed"] < 30
     assert ui.stop_run(run) is False
+
+
+def test_open_report_shows_a_finished_capsule_with_its_stage_statuses(tmp_path):
+    ui.RUNS.clear()
+    capsule = {"repo": "D:/proj", "dependencies": [], "conflicts": [], "usages": {}, "signals": [], "model": {},
+               "stages": [{"stage": "discover", "status": "ok"}, {"stage": "propose", "status": "failed", "error": "model down"}],
+               "proposals": [{"dependency": "x", "verdict": "verified", "tag": "AI-PROPOSED",
+                              "edits": [{"file": "a.py", "old_text": "import a", "new_text": "import b"}],
+                              "requirements_change": {"remove": ["a==1"], "add": ["b>=2"]}}]}
+    (tmp_path / "EXIT_CAPSULE.json").write_text(json.dumps(capsule), encoding="utf-8")
+    run = ui.open_report(f'"{tmp_path}"')
+    state = ui.run_state(run)
+    stages = {s["name"]: s for s in state["stages"]}
+    assert run.repo == "D:/proj" and state["state"] == "failed"
+    assert stages["S1 discover"]["state"] == "ok" and stages["S4 propose"]["detail"] == "model down"
+    p = state["stats"]["proposals"][0]
+    assert p["edits"][0]["new"] == "import b" and p["remove"] == ["a==1"] and p["add"] == ["b>=2"]
+    with pytest.raises(ValueError):
+        ui.open_report(str(tmp_path / "empty"))
+
+
+def test_runs_from_an_earlier_session_are_restored(tmp_path):
+    ui.RUNS.clear()
+    d = tmp_path / "abcdef012345"
+    d.mkdir()
+    (d / "run.log").write_text("GemmaMorph: repo=D:/proj  model=gemma4:e2b (ollama @ x)\n[ok     ] S1 discover   1 dependencies, 0 conflicts\nexit code 0\n", encoding="utf-8")
+    (tmp_path / "not-a-run").mkdir()
+    ui.restore_runs(tmp_path)
+    assert list(ui.RUNS) == ["abcdef012345"]
+    state = ui.run_state(ui.RUNS["abcdef012345"])
+    assert state["repo"] == "D:/proj" and state["state"] == "finished"
+
+
+def test_page_scripts_are_valid_javascript(tmp_path):
+    import re
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    run = ui.Run("abcdef012345", "D:/x", tmp_path, [])
+    for name, page_bytes in (("index", ui.index_page(tmp_path)), ("run", ui.run_page(run))):
+        scripts = re.findall(r"<script>(.*?)</script>", page_bytes.decode("utf-8"), re.S)
+        assert scripts
+        js = tmp_path / f"{name}.js"
+        js.write_text("\n;\n".join(scripts), encoding="utf-8")
+        result = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
+        assert result.returncode == 0, f"{name} page: {result.stderr}"
