@@ -130,3 +130,69 @@ def test_untrusted_text_is_escaped_on_the_run_page(server):
     _, headers = post(base + "/run", {"repo": str(odd)})
     _, body, _ = get(base + headers["Location"])
     assert "x&amp;y&#x27;z" in body and "x&y'z" not in body
+
+
+def test_quick_mode_adds_skip_rehearsal_and_full_mode_does_not(tmp_path):
+    quick = ui.build_command("repo", tmp_path, {"mode": "quick"})
+    full = ui.build_command("repo", tmp_path, {"mode": "full"})
+    assert "--skip-rehearsal" in quick and "--skip-rehearsal" not in full
+
+
+def test_check_path_describes_a_folder(tmp_path):
+    assert ui.check_path("")["state"] == "empty"
+    assert ui.check_path(str(tmp_path / "nope"))["state"] == "missing"
+    assert ui.check_path(str(tmp_path))["state"] == "weak"
+    (tmp_path / "requirements.txt").write_text("x\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "venv").mkdir()
+    (tmp_path / "venv" / "skip.py").write_text("x", encoding="utf-8")
+    result = ui.check_path(f'"{tmp_path}"')  # quotes pasted from Explorer are tolerated
+    assert result == {"state": "ok", "manifests": ["requirements.txt"], "python_files": 1}
+
+
+def test_health_reports_an_unreachable_model_server_without_raising():
+    result = ui.health("http://127.0.0.1:1")
+    assert result["ollama"] is False and result["gemma4"] == [] and result["error"]
+
+
+def test_capsule_stats_orders_findings_and_counts_verdicts(tmp_path):
+    capsule = {
+        "dependencies": [{}, {}], "conflicts": [], "usages": {"a": [1, 2], "b": [3]}, "model": {"name": "gemma4:e2b"},
+        "signals": [
+            {"kind": "stale-release", "dependency": "toml", "detail": "old", "tag": "OBSERVED", "source": "pypi:toml"},
+            {"kind": "test-failure", "dependency": "jinja2", "detail": "boom", "tag": "OBSERVED", "source": "pytest:t"},
+        ],
+        "proposals": [{"dependency": "x", "verdict": "refuted", "tag": "REFUTED", "verdict_reasons": ["why"]},
+                      {"dependency": "y", "error": "no model", "tag": "AI-PROPOSED"}],
+    }
+    (tmp_path / "EXIT_CAPSULE.json").write_text(json.dumps(capsule), encoding="utf-8")
+    stats = ui.capsule_stats(tmp_path)
+    assert [f["kind"] for f in stats["findings"]] == ["test-failure", "stale-release"]
+    assert stats["counts"] == {"refuted": 1, "no proposal": 1} and stats["usages"] == 3 and stats["flagged"] == 2
+    assert ui.capsule_stats(tmp_path / "missing") is None
+
+
+def test_api_routes_health_check_and_stop(server):
+    base, tmp = server
+    assert "ollama" in json.loads(get(base + "/api/health")[1])
+    (tmp / "requirements.txt").write_text("x\n", encoding="utf-8")
+    assert json.loads(get(base + "/api/check?path=" + urllib.parse.quote(str(tmp)))[1])["manifests"] == ["requirements.txt"]
+    assert get(base + "/api/stop/unknown")[0] == 404
+    status, _ = post(base + "/api/stop/unknown", {})
+    assert status == 404
+
+
+def test_a_running_pipeline_can_be_stopped(tmp_path):
+    ui.RUNS.clear()
+    run = ui.start_run({"repo": str(tmp_path)}, tmp_path / "runs",
+                       lambda repo, out, form: [sys.executable, "-c", "import time;print('--- S1 discover',flush=True);time.sleep(60)"])
+    time.sleep(0.5)
+    assert ui.run_state(run)["state"] == "running"
+    assert ui.stop_run(run) is True
+    for _ in range(50):
+        if run.returncode is not None:
+            break
+        time.sleep(0.1)
+    state = ui.run_state(run)
+    assert state["state"] == "stopped" and state["elapsed"] < 30
+    assert ui.stop_run(run) is False
