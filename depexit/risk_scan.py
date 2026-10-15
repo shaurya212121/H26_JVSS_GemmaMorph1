@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import sys
 import tempfile
@@ -145,7 +146,8 @@ def _dists_for_module(top: str, module_map: dict[str, list[str]]) -> list[str]:
 def attribute_text(text: str, module_map: dict[str, list[str]], known: set[str],
                    last_frame: bool = False) -> str | None:
     """Map a traceback/warning text to a distribution via site-packages paths, then named modules."""
-    frames = SITE_PACKAGES.findall(text)
+    frame_text = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("E "))
+    frames = SITE_PACKAGES.findall(frame_text)
     for top in (reversed(frames) if last_frame else frames):
         dists = _dists_for_module(top, module_map)
         if dists:
@@ -163,11 +165,19 @@ def attribute_text(text: str, module_map: dict[str, list[str]], known: set[str],
     return None
 
 
-def observed_signals(run: TestRun, module_map: dict[str, list[str]], known: set[str]) -> list[RiskSignal]:
+def observed_signals(run: TestRun, module_map: dict[str, list[str]], known: set[str],
+                     redact: dict[str, str] | None = None) -> list[RiskSignal]:
+    """redact maps sandbox path prefixes to labels, so temp paths do not leak into the report."""
     sigs: list[RiskSignal] = []
     seen: dict[tuple, int] = {}
 
+    def clean(text: str) -> str:
+        for prefix, label in (redact or {}).items():
+            text = text.replace(prefix, label)
+        return text
+
     def add(kind: str, detail: str, source: str, dep: str | None) -> None:
+        detail, source = clean(detail), clean(source)
         key = (kind, dep, detail)
         if key in seen:
             return
@@ -336,7 +346,8 @@ def scan_risks(
                 f"{baseline.errors} errors (exit {baseline.exit_code})")
             if baseline.exit_code == 5 or not baseline.tests:
                 notes.append("no tests were collected; there is no observed test evidence")
-            signals.extend(observed_signals(test_run, module_map, known))
+            signals.extend(observed_signals(test_run, module_map, known,
+                                              {str(work) + os.sep: "", str(env.root): "<venv>"}))
         signals.extend(install_signals(install_runs, outputs))
         signals.extend(undeclared_signals(root, known, module_map, notes))
     finally:
