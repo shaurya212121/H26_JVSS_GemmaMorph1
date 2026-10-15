@@ -7,3 +7,24 @@ dist/
 .venv/
 venv/
 status.html
+
+# GemmaMorph
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*$py.class
+# Virtual environments
+env/
+# Environment variables (NEVER commit API keys)
+.env
+# IDE
+.vscode/
+.idea/
+# OS
+.DS_Store
+Thumbs.db
+# Test / build artifacts
+.coverage
+.coverage.*
+htmlcov/
+# Rehearsal sandbox temp dirs
+_sandbox_*/
