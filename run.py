@@ -26,8 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from depexit.llm import LLMClient, LLMConfig  # noqa: E402
 from depexit.log import log  # noqa: E402
 from depexit.models import (  # noqa: E402
-    FAILED, OK, SKIPPED, Capsule, DiscoveryResult, ProposalResult, RehearsalResult,
-    RiskScanResult, StageStatus, UsageResult,
+    FAILED, OK, SKIPPED, VERIFIED, Capsule, DiscoveryResult, ProposalResult, RehearsalResult,
+    RiskScanResult, RiskSignal, StageStatus, UsageResult,
 )
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -89,6 +89,20 @@ def waiting_on(*deps: Stage) -> Optional[str]:
     return None
 
 
+def add_usage_signals(risk: RiskScanResult, usage: UsageResult) -> None:
+    """Turn private-API and monkeypatch usages found by S3 into VERIFIED risk signals."""
+    seen = {(s.kind, s.source) for s in risk.signals}
+    for dist, uses in usage.usages.items():
+        for u in uses:
+            source = f"ast:{u.file}:{u.line}"
+            if u.kind in ("private-api", "monkeypatch") and (u.kind, source) not in seen:
+                seen.add((u.kind, source))
+                risk.signals.append(RiskSignal(kind=u.kind, detail=f"{u.symbol} used in {u.function or 'module scope'}",
+                                               source=source, tag=VERIFIED, dependency=dist))
+                if dist not in risk.flagged:
+                    risk.flagged = sorted([*risk.flagged, dist])
+
+
 def describe(stage: Stage) -> str:
     s = stage.status
     if s.status == SKIPPED:
@@ -146,7 +160,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     def run_usage() -> UsageResult:
         from depexit.usage_finder import find_usages
-        return find_usages(repo, s2.value.flagged, s2.value.module_map)
+        # all declared dependencies, not only the flagged ones: a private-API call or a
+        # monkeypatch is itself a risk signal that S2 (metadata and test runs) cannot see
+        names = sorted({d.name for d in s1.value.dependencies} | set(s2.value.flagged))
+        result = find_usages(repo, names, s2.value.module_map)
+        add_usage_signals(s2.value, result)
+        return result
 
     s3 = skipped(STAGES[2], waiting_on(s2)) if waiting_on(s2) else execute(STAGES[2], run_usage)
 
