@@ -6,6 +6,7 @@ tracebacks from the output. Optionally under coverage.py.
 
 from __future__ import annotations
 
+import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -106,5 +107,13 @@ def run_tests(
     result.errors = sum(1 for v in tests.values() if v == "error")
     result.skipped = sum(1 for v in tests.values() if v == "skipped")
     blocks = parse_warning_blocks(output)
-    result.warnings = [f"{loc}: {text}" for loc, text in blocks]
+    # sandbox paths differ between runs; strip them so warnings from different runs can be compared
+    prefixes = {str(workdir) + os.sep: "", str(env.root): "<venv>"}
+
+    def clean(text: str) -> str:
+        for prefix, label in prefixes.items():
+            text = text.replace(prefix, label)
+        return text
+
+    result.warnings = [clean(f"{loc}: {text}") for loc, text in blocks]
     return TestRun(result=result, failures=failures, warning_blocks=blocks, output=output)
