@@ -211,3 +211,10 @@ def test_find_usages_contract_and_detections(fixture_repo: Path):
         assert not any(part in f.split("/") for part in (
             ".git", "venv", "venvs", ".venv", "node_modules", "__pycache__", "build", "dist", ".tox", ".eggs"
         ))
+
+
+def test_missing_repo_raises_instead_of_reporting_ok(tmp_path):
+    import pytest
+
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        find_usages(tmp_path / "no-such-repo", ["requests"], {"requests": ["requests"]})

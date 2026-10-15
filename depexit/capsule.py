@@ -393,7 +393,7 @@ def _render_markdown(capsule: Capsule) -> str:
             lines.append("")
 
     # Gaps & Patch
-    lines.append("## ⚡ Compatibility Gaps & Certified Patch")
+    lines.append("## ⚡ Compatibility Gaps & Proposed Patch")
     lines.append("")
     if capsule.gaps:
         lines.append("### Compatibility Gaps")
