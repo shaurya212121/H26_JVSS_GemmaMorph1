@@ -24,6 +24,8 @@ Thumbs.db
 dist/
 build/
 .pytest_cache/
+.coverage
+.coverage.*
 htmlcov/
 
 # Rehearsal sandbox temp dirs
