@@ -1,423 +1,213 @@
 #!/usr/bin/env python3
 """
-GemmaMorph: Autonomous Dependency Resilience & Exit Rehearsal Engine
-====================================================================
-Main entry point and orchestration pipeline.
+GemmaMorph orchestrator: runs the six stages in order, passing each stage's
+typed output (depexit/models.py) to the next.
 
-Usage:
-    python run.py --repo ../LinkWatch [--hosted] [--keep-sandbox] [--skip-rehearsal] [--output ./output]
+  S1 discover  -> S2 risk_scan -> S3 usage -> S4 propose (Gemma 4)
+              -> S5 rehearse   -> S6 capsule
 
-Stages:
-    Stage 1: Dependency Discovery (discover)
-    Stage 2: Risk Scanning (scan_risks)
-    Stage 3: AST Usage Analysis (find_usages)
-    Stage 4: Gemma AI Migration Proposals (propose_migrations)
-    Stage 5: Exit Rehearsal in Sandbox Clones (run_rehearsal)
-    Stage 6: Dependency Exit Capsule Generation (generate_capsule)
+Every stage ends as ok, failed or skipped, with the real error or the reason.
+A stage whose input is missing is skipped and says which stage it waited for.
+The exit code is 1 if any stage failed, 2 for bad arguments, otherwise 0.
 """
 
 from __future__ import annotations
 
 import argparse
-import inspect
-import os
 import sys
 import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Callable, Optional
 
-# Add project root to sys.path
-_PROJECT_ROOT = Path(__file__).resolve().parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Load .env file early if present
-try:
-    from dotenv import find_dotenv, load_dotenv
-    _env_file = _PROJECT_ROOT / ".env"
-    if _env_file.exists():
-        load_dotenv(dotenv_path=_env_file, override=False)
+from depexit.llm import LLMClient, LLMConfig  # noqa: E402
+from depexit.log import log  # noqa: E402
+from depexit.models import (  # noqa: E402
+    FAILED, OK, SKIPPED, Capsule, DiscoveryResult, ProposalResult, RehearsalResult,
+    RiskScanResult, StageStatus, UsageResult,
+)
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+STAGES = ("S1 discover", "S2 risk_scan", "S3 usage", "S4 propose", "S5 rehearse", "S6 capsule")
+
+
+def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(prog="run.py", description="Find at-risk dependencies and rehearse their replacement with Gemma 4.")
+    p.add_argument("repo_pos", nargs="?", metavar="REPO", help="path to the Python repo to analyse")
+    p.add_argument("--repo", dest="repo_flag", help="same as the positional REPO")
+    p.add_argument("--output", default="./output", help="directory for the capsule files (default ./output)")
+    p.add_argument("--backend", choices=["ollama", "gemini"], help="model backend (default ollama; env GEMMA_BACKEND)")
+    p.add_argument("--hosted", action="store_true", help="shortcut for --backend gemini (needs GEMINI_API_KEY)")
+    p.add_argument("--model", help="Gemma 4 model name (default gemma4:e2b / gemma-4-26b-a4b-it; env GEMMA_MODEL)")
+    p.add_argument("--base-url", help="backend base URL (env GEMMA_BASE_URL or OLLAMA_HOST)")
+    p.add_argument("--num-ctx", type=int, help="Ollama context window in tokens (default 16384)")
+    p.add_argument("--skip-rehearsal", action="store_true", help="skip S5 (no sandbox runs)")
+    p.add_argument("--keep-sandbox", action="store_true", help="keep temporary sandboxes for inspection")
+    p.add_argument("--stale-years", type=float, default=2.0, help="flag a latest release older than this (default 2)")
+    p.add_argument("--test-timeout", type=int, default=600, help="seconds allowed per test run (default 600)")
+    return p.parse_args(argv)
+
+
+@dataclass
+class Stage:
+    name: str
+    status: StageStatus
+    value: Any = None
+
+
+def execute(name: str, fn: Callable[[], Any]) -> Stage:
+    """Run one stage. This is the only place exceptions are caught; the real error is recorded."""
+    log(f"--- {name}")
+    started = time.monotonic()
+    try:
+        value = fn()
+    except Exception as exc:  # a stage failing must not stop the report from being written
+        return Stage(name, StageStatus(name, FAILED, error=f"{type(exc).__name__}: {exc}"))
+    status = getattr(value, "status", None)
+    if isinstance(status, StageStatus):  # the stage may itself report a partial failure
+        status.stage = name
     else:
-        load_dotenv(find_dotenv(), override=False)
-except ImportError:
-    pass
-
-from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress
-from rich.table import Table
-
-console = Console()
-if sys.platform == "win32":
-    try:
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        if hasattr(sys.stderr, "reconfigure"):
-            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+        status = StageStatus(name, OK)
+    log(f"    ({time.monotonic() - started:.1f}s)")
+    return Stage(name, status, value)
 
 
-def parse_arguments() -> argparse.Namespace:
-    """Parse and validate command line arguments."""
-    parser = argparse.ArgumentParser(
-        prog="GemmaMorph",
-        description="Autonomous Dependency Resilience & Exit Rehearsal Engine (Team JVSS | Hacktoberfest 2026)",
-    )
-    parser.add_argument(
-        "--repo",
-        type=str,
-        required=True,
-        help="Path to the target repository to analyze (e.g. ../LinkWatch)",
-    )
-    parser.add_argument(
-        "--backend",
-        choices=["ollama", "gemini"],
-        default=None,
-        help="Model backend: local Ollama (default) or hosted Gemini API (needs GEMINI_API_KEY). Env: GEMMA_BACKEND",
-    )
-    parser.add_argument(
-        "--hosted",
-        action="store_true",
-        default=False,
-        help="Shortcut for --backend gemini",
-    )
-    parser.add_argument(
-        "--model",
-        default=None,
-        help="Gemma 4 model name (default gemma4:e2b for ollama, gemma-4-26b-a4b-it for gemini). Env: GEMMA_MODEL",
-    )
-    parser.add_argument(
-        "--base-url",
-        default=None,
-        help="Backend base URL (default http://localhost:11434 for ollama). Env: GEMMA_BASE_URL or OLLAMA_HOST",
-    )
-    parser.add_argument(
-        "--keep-sandbox",
-        action="store_true",
-        default=False,
-        help="Do not delete temporary sandbox directories after rehearsal",
-    )
-    parser.add_argument(
-        "--skip-rehearsal",
-        action="store_true",
-        default=False,
-        help="Skip Stage 5 sandbox execution for rapid dry-run demonstrations",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="./output",
-        help="Target directory for generated exit capsules (default: ./output)",
-    )
-    return parser.parse_args()
+def skipped(name: str, reason: str) -> Stage:
+    return Stage(name, StageStatus(name, SKIPPED, skip_reason=reason))
 
 
-def print_banner() -> None:
-    """Display the official GemmaMorph banner."""
-    banner_text = (
-        "[bold cyan]╔══════════════════════════════════════════╗[/bold cyan]\n"
-        "[bold cyan]║[/bold cyan]  [bold white]GemmaMorph v1.0 — Exit Rehearsal Engine[/bold white] [bold cyan]║[/bold cyan]\n"
-        "[bold cyan]║[/bold cyan]  [bold yellow]Team JVSS | Hacktoberfest 2026[/bold yellow]          [bold cyan]║[/bold cyan]\n"
-        "[bold cyan]╚══════════════════════════════════════════╝[/bold cyan]"
-    )
-    console.print(Panel(banner_text, border_style="bright_blue", expand=False))
+def waiting_on(*deps: Stage) -> Optional[str]:
+    for d in deps:
+        if d.status.status != OK or d.value is None:
+            return f"{d.name} did not complete ({d.status.status})"
+    return None
 
 
-def main() -> int:
-    start_time = time.time()
-    args = parse_arguments()
+def describe(stage: Stage) -> str:
+    s = stage.status
+    if s.status == SKIPPED:
+        return f"skipped: {s.skip_reason}"
+    v = stage.value
+    if s.status == FAILED:
+        return f"{s.error}"
+    if isinstance(v, DiscoveryResult):
+        return f"{len(v.dependencies)} dependencies, {len(v.conflicts)} conflicts"
+    if isinstance(v, RiskScanResult):
+        b = v.baseline
+        tests = f"baseline {b.passed} passed/{b.failed} failed" if b else "no baseline run"
+        return f"{len(v.signals)} signals, {len(v.flagged)} flagged dependencies, {tests}"
+    if isinstance(v, UsageResult):
+        return f"{sum(len(u) for u in v.usages.values())} usages across {len(v.usages)} dependencies"
+    if isinstance(v, ProposalResult):
+        return f"{sum(1 for p in v.proposals if not p.error)} proposals, {sum(1 for p in v.proposals if p.error)} without"
+    if isinstance(v, RehearsalResult):
+        return f"{len(v.comparisons)} runs compared, {len(v.gaps)} gaps"
+    return "done"
 
-    # Step 2: Configure environment based on execution flags
-    from depexit import llm
-    try:
-        llm_config = llm.LLMConfig.from_options(
-            backend="gemini" if args.hosted else args.backend,
-            model=args.model,
-            base_url=args.base_url,
-        )
-    except ValueError as exc:
-        console.print(f"[bold red]Error:[/bold red] {exc}")
+
+def main(argv: Optional[list[str]] = None) -> int:
+    args = parse_args(argv)
+    repo_arg = args.repo_pos or args.repo_flag
+    if not repo_arg or (args.repo_pos and args.repo_flag and args.repo_pos != args.repo_flag):
+        print("error: give the repo once, as REPO or --repo", file=sys.stderr)
         return 2
-    llm.configure(llm.LLMClient(llm_config))
-
-    print_banner()
-
-    repo_path = Path(args.repo).resolve()
+    repo = Path(repo_arg).resolve()
+    if not repo.is_dir():
+        print(f"error: repo not found: {repo}", file=sys.stderr)
+        return 2
     output_dir = Path(args.output).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    console.print(f"[bold]Target Repository:[/bold] [cyan]{repo_path}[/cyan]")
-    console.print(f"[bold]LLM Backend:[/bold]       [magenta]{llm_config.backend} / {llm_config.model} @ {llm_config.base_url}[/magenta]")
-    console.print(f"[bold]Output Directory:[/bold]  [yellow]{output_dir}[/yellow]")
-    console.print(f"[bold]Keep Sandboxes:[/bold]    [dim]{args.keep_sandbox}[/dim]")
-    console.print(f"[bold]Skip Rehearsal:[/bold]    [dim]{args.skip_rehearsal}[/dim]\n")
-
-    if not repo_path.exists():
-        console.print(Panel(f"[bold red]Error:[/bold red] Target repository '{repo_path}' does not exist.", border_style="red"))
-        return 1
-
-    discovery: dict = {}
-    risks: dict = {}
-    usages: dict = {}
-    proposals: list[dict] = []
-    rehearsal: dict = {}
-
-    # Stage 1: Dependency Discovery
     try:
+        config = LLMConfig.from_options(backend="gemini" if args.hosted else args.backend, model=args.model,
+                                        base_url=args.base_url, num_ctx=args.num_ctx)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    llm = LLMClient(config)
+    log(f"GemmaMorph: repo={repo}  model={config.model} ({config.backend} @ {config.base_url})")
+
+    def run_discover() -> DiscoveryResult:
         from depexit.discover import discover
-        console.print("[bold cyan]─── Stage 1: Dependency Discovery ───[/bold cyan]")
-        discovery = discover(repo_path)
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold red]Stage 1 Discovery Failed:[/bold red] {exc}",
-                title="Stage 1 Error",
-                border_style="red",
-            )
-        )
-        discovery = {"repo_path": str(repo_path), "dependencies": []}
+        return discover(repo)
 
-    # Stage 2: Risk Scanning
-    try:
+    s1 = execute(STAGES[0], run_discover)
+
+    def run_risk() -> RiskScanResult:
         from depexit.risk_scan import scan_risks
-        console.print("\n[bold cyan]─── Stage 2: Risk Scanning ───[/bold cyan]")
-        sig = inspect.signature(scan_risks)
-        if len(sig.parameters) == 1:
-            risks = scan_risks(discovery)
-        else:
-            risks = scan_risks(repo_path, discovery)
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold red]Stage 2 Risk Scan Failed:[/bold red] {exc}",
-                title="Stage 2 Error",
-                border_style="red",
-            )
-        )
-        risks = {"risks": {}}
+        return scan_risks(repo, s1.value, stale_years=args.stale_years, test_timeout=args.test_timeout,
+                          keep_sandbox=args.keep_sandbox)
 
-    # Stage 3: AST Usage Analysis
-    try:
+    s2 = skipped(STAGES[1], waiting_on(s1)) if waiting_on(s1) else execute(STAGES[1], run_risk)
+
+    def run_usage() -> UsageResult:
         from depexit.usage_finder import find_usages
-        console.print("\n[bold cyan]─── Stage 3: AST Usage Finder ───[/bold cyan]")
-        
-        # Collect dependency list for usage search
-        dep_names: list[str] = []
-        raw_deps = discovery.get("declared_deps") or discovery.get("dependencies") or []
-        if isinstance(raw_deps, list):
-            for d in raw_deps:
-                if isinstance(d, dict):
-                    name = d.get("name") or d.get("dep_name")
-                    if name:
-                        dep_names.append(name)
-                elif isinstance(d, str):
-                    dep_names.append(d)
-        elif isinstance(raw_deps, dict):
-            dep_names = list(raw_deps.keys())
+        return find_usages(repo, s2.value.flagged, s2.value.module_map)
 
-        if not dep_names and isinstance(risks.get("risks"), dict):
-            dep_names = list(risks["risks"].keys())
+    s3 = skipped(STAGES[2], waiting_on(s2)) if waiting_on(s2) else execute(STAGES[2], run_usage)
 
-        # If still empty, fall back to searching requirements.txt directly
-        if not dep_names:
-            req_file = repo_path / "requirements.txt"
-            if req_file.exists():
-                for line in req_file.read_text(encoding="utf-8").splitlines():
-                    cleaned = line.strip().split("#")[0].strip()
-                    if cleaned:
-                        import re
-                        base = re.split(r"[=<>!~]", cleaned)[0].strip()
-                        if base:
-                            dep_names.append(base)
-
-        dep_names = sorted(list(set(dep_names)))
-        usages = find_usages(repo_path, dep_names)
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold red]Stage 3 Usage Finder Failed:[/bold red] {exc}",
-                title="Stage 3 Error",
-                border_style="red",
-            )
-        )
-        usages = {}
-
-    # Stage 4: Gemma AI Migration Proposals
-    try:
+    def run_propose() -> ProposalResult:
         from depexit.gemma_propose import propose_migrations
-        console.print("\n[bold cyan]─── Stage 4: Gemma AI Migration Proposals ───[/bold cyan]")
-        
-        sig = inspect.signature(propose_migrations)
-        param_names = list(sig.parameters.keys())
-        
-        if "at_risk_deps" in param_names:
-            # Prepare at_risk list
-            at_risk: list[dict] = []
-            if isinstance(risks.get("risks"), dict):
-                for k, v in risks["risks"].items():
-                    if isinstance(v, dict):
-                        level = v.get("risk_level", "").upper()
-                        if level in ("HIGH", "MEDIUM"):
-                            at_risk.append({"name": k, **v})
-                    elif isinstance(v, str) and v.upper() in ("HIGH", "MEDIUM"):
-                        at_risk.append({"name": k, "risk_level": v})
-            
-            # If no classified risks yet, pass all discovered dependencies
-            if not at_risk:
-                at_risk = [{"name": d} for d in dep_names]
+        return propose_migrations(llm, repo, s1.value, s2.value, s3.value)
 
-            proposals = propose_migrations(at_risk, usages, risks, repo_path=repo_path)
-        else:
-            proposals = propose_migrations(discovery, risks, usages)
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold red]Stage 4 Proposal Generation Failed:[/bold red] {exc}",
-                title="Stage 4 Error",
-                border_style="red",
-            )
-        )
-        proposals = []
+    s4 = skipped(STAGES[3], waiting_on(s3)) if waiting_on(s3) else execute(STAGES[3], run_propose)
 
-    # Stage 5: Exit Rehearsal in Sandbox
+    def run_rehearse() -> RehearsalResult:
+        from depexit.rehearsal import rehearse
+        return rehearse(repo, s1.value, s2.value.baseline, s4.value.proposals, output_dir,
+                        keep_sandbox=args.keep_sandbox, test_timeout=args.test_timeout)
+
     if args.skip_rehearsal:
-        console.print("\n[bold yellow]─── Stage 5: Skipped (--skip-rehearsal flag enabled) ───[/bold yellow]")
-        rehearsal = {
-            "baseline": {
-                "total": 0,
-                "passed": 0,
-                "failed": 0,
-                "test_details": [],
-                "passed_tests": [],
-                "failed_tests": [],
-                "warnings": [],
-            },
-            "per_proposal": [],
-            "combined": {
-                "applied_proposals": [],
-                "total": 0,
-                "passed": 0,
-                "failed": 0,
-                "newly_failing": [],
-                "status": "SKIPPED",
-            },
-        }
+        s5 = skipped(STAGES[4], "--skip-rehearsal was given")
+    elif waiting_on(s4):
+        s5 = skipped(STAGES[4], waiting_on(s4))
     else:
-        try:
-            from depexit.rehearsal import run_rehearsal
-            rehearsal = run_rehearsal(
-                repo_path=repo_path,
-                proposals=proposals,
-                keep_sandbox=args.keep_sandbox,
-            )
-        except Exception as exc:
-            console.print(
-                Panel(
-                    f"[bold red]Stage 5 Exit Rehearsal Failed:[/bold red] {exc}",
-                    title="Stage 5 Error",
-                    border_style="red",
-                )
-            )
-            rehearsal = {
-                "baseline": {
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "test_details": [],
-                    "passed_tests": [],
-                    "failed_tests": [],
-                    "warnings": [],
-                },
-                "per_proposal": [],
-                "combined": {
-                    "applied_proposals": [],
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "newly_failing": [],
-                    "status": "ERROR",
-                },
-            }
+        s5 = execute(STAGES[4], run_rehearse)
 
-    # Stage 6: Dependency Exit Capsule Generator
-    model_info = {
-        "model_name": llm_config.model,
-        "backend": llm_config.backend,
-        "base_url": llm_config.base_url,
-    }
+    stages = [s1, s2, s3, s4, s5]
+    paths: list[Path] = []
 
-    try:
-        from depexit.capsule import generate_capsule
-        json_path, md_path = generate_capsule(
-            discovery=discovery,
-            risks=risks,
-            usages=usages,
-            proposals=proposals,
-            rehearsal=rehearsal,
-            output_dir=output_dir,
-            model_info=model_info,
+    def run_capsule() -> list[Path]:
+        from depexit.capsule import build_summary, write_capsule
+        d, r, u, p, h = (s.value for s in (s1, s2, s3, s4, s5))
+        capsule = Capsule(
+            generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            repo=str(repo),
+            model={"name": config.model, "backend": config.backend, "base_url": config.base_url},
+            stages=[s.status for s in stages],
+            dependencies=d.dependencies if d else [],
+            conflicts=d.conflicts if d else [],
+            signals=r.signals if r else [],
+            usages=u.usages if u else {},
+            proposals=p.proposals if p else [],
+            baseline=r.baseline if r else None,
+            comparisons=h.comparisons if h else [],
+            gaps=h.gaps if h else [],
+            patch_path=h.patch_path if h else None,
+            summary=None,
+            notes=[n for res in (d, r, u, h) if res for n in res.notes],
         )
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold red]Stage 6 Capsule Generation Failed:[/bold red] {exc}",
-                title="Stage 6 Error",
-                border_style="red",
-            )
-        )
-        json_path, md_path = None, None
+        capsule.summary, capsule.summary_error = build_summary(llm, capsule)
+        return list(write_capsule(capsule, output_dir))
 
-    # Step 10 & 11: Completion summary and timing
-    elapsed_time = time.time() - start_time
+    s6 = execute(STAGES[5], run_capsule)
+    if s6.status.status == OK:
+        paths = s6.value
+    stages.append(s6)
 
-    summary_table = Table(title="GemmaMorph Execution Summary", header_style="bold green")
-    summary_table.add_column("Pipeline Stage", style="bold")
-    summary_table.add_column("Status", justify="center")
-    summary_table.add_column("Details")
-
-    discovery_deps = discovery.get("declared_deps") or discovery.get("dependencies") or []
-    summary_table.add_row(
-        "Stage 1: Discovery",
-        "[green]OK[/green]" if discovery_deps else "[yellow]PARTIAL[/yellow]",
-        f"{len(discovery_deps)} dependencies found",
-    )
-    summary_table.add_row(
-        "Stage 2: Risk Scan",
-        "[green]OK[/green]" if risks.get("risks") else "[yellow]PARTIAL[/yellow]",
-        f"{len(risks.get('risks', {}))} components evaluated",
-    )
-    summary_table.add_row(
-        "Stage 3: AST Usages",
-        "[green]OK[/green]" if usages else "[yellow]PARTIAL[/yellow]",
-        f"{sum(len(v) for v in usages.values())} callsites mapped",
-    )
-    summary_table.add_row(
-        "Stage 4: Gemma Proposals",
-        "[green]OK[/green]" if proposals else "[yellow]PARTIAL[/yellow]",
-        f"{len(proposals)} migration plans generated",
-    )
-    summary_table.add_row(
-        "Stage 5: Sandbox Rehearsal",
-        "[yellow]SKIPPED[/yellow]" if args.skip_rehearsal else "[green]OK[/green]" if rehearsal.get("baseline") else "[red]FAILED[/red]",
-        f"{len(rehearsal.get('per_proposal', []))} rehearsals executed",
-    )
-    summary_table.add_row(
-        "Stage 6: Exit Capsule",
-        "[green]OK[/green]" if (json_path and md_path) else "[red]FAILED[/red]",
-        f"Capsules written to {output_dir.name}/",
-    )
-
-    console.print("")
-    console.print(summary_table)
-
-    status_message = (
-        f"[bold green]Pipeline finished successfully in {elapsed_time:.2f} seconds![/bold green]\n\n"
-        f"  [bold]JSON Capsule:[/bold]     [cyan]{json_path or 'N/A'}[/cyan]\n"
-        f"  [bold]Markdown Capsule:[/bold] [cyan]{md_path or 'N/A'}[/cyan]"
-    )
-    console.print(Panel(status_message, title="Execution Complete", border_style="green"))
-
-    return 0
+    print()
+    for s in stages:
+        print(f"[{s.status.status:7}] {s.name:13} {describe(s)}")
+    for path in paths:
+        print(f"output: {path}")
+    failed = [s.name for s in stages if s.status.status == FAILED]
+    code = 1 if failed else 0
+    print(f"exit code {code}" + (f" (failed: {', '.join(failed)})" if failed else ""))
+    return code
 
 
 if __name__ == "__main__":
