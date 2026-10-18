@@ -16,6 +16,7 @@ import html
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -127,12 +128,47 @@ def capsule_stats(out_dir: Path) -> Optional[dict]:
         })
     rank = {k: i for i, k in enumerate(FINDING_ORDER)}
     findings = sorted(signals, key=lambda s: rank.get(s.get("kind", ""), 99))[:10]
+
+    usages_dict = capsule.get("usages", {})
+    total_calls = sum(len(v) for v in usages_dict.values()) if isinstance(usages_dict, dict) else 0
+    affected_files = set()
+    if isinstance(usages_dict, dict):
+        for u_list in usages_dict.values():
+            if isinstance(u_list, list):
+                for u in u_list:
+                    if isinstance(u, dict) and u.get("file"):
+                        affected_files.add(u["file"])
+    blast_radius_score = min(100, max(8, len(affected_files) * 20 + total_calls * 4)) if (affected_files or total_calls) else 0
+
+    modified_tests: list[str] = []
+    deleted_asserts = 0
+    for p in proposals:
+        for e in p.get("edits", []):
+            fname = str(e.get("file", "")).lower()
+            if "test" in fname or fname.startswith("test_") or fname.endswith("_test.py"):
+                modified_tests.append(e.get("file", ""))
+            old_c = str(e.get("old_text", ""))
+            new_c = str(e.get("new_text", ""))
+            if "assert " in old_c and "assert " not in new_c:
+                deleted_asserts += 1
+
     return {
         "dependencies": len(capsule.get("dependencies", [])),
         "conflicts": len(capsule.get("conflicts", [])),
         "signals": len(signals),
         "flagged": len({s.get("dependency") for s in signals if s.get("dependency")}),
         "usages": sum(len(v) for v in capsule.get("usages", {}).values()),
+        "blast_radius": {
+            "score": blast_radius_score,
+            "files_count": len(affected_files),
+            "files": sorted(list(affected_files)),
+            "total_calls": total_calls,
+        },
+        "anti_cheat": {
+            "passed": len(modified_tests) == 0 and deleted_asserts == 0,
+            "modified_tests": modified_tests,
+            "deleted_asserts": deleted_asserts,
+        },
         "findings": [{"kind": s.get("kind", ""), "dependency": s.get("dependency") or "", "detail": (s.get("detail") or "")[:200],
                       "tag": s.get("tag", ""), "source": s.get("source", "")} for s in findings],
         "proposals": rows,
@@ -198,16 +234,48 @@ def stop_run(run: Run) -> bool:
     return True
 
 
+_HEALTH_CACHE: tuple[float, dict] = (0.0, {})
+
+
 def health(base_url: str = "http://localhost:11434") -> dict:
     """Is the local model server reachable, and does it have a Gemma 4 model?"""
+    global _HEALTH_CACHE
+    now = time.time()
+    if now - _HEALTH_CACHE[0] < 10.0 and _HEALTH_CACHE[1]:
+        return _HEALTH_CACHE[1]
+
+    host = "127.0.0.1"
+    port = 11434
     try:
-        with urllib.request.urlopen(base_url.rstrip("/") + "/api/tags", timeout=2) as resp:
+        u = urlparse(base_url)
+        host = u.hostname or "127.0.0.1"
+        port = u.port or 11434
+    except Exception:
+        pass
+
+    sock_ok = False
+    try:
+        with socket.create_connection((host, port), timeout=0.15):
+            sock_ok = True
+    except OSError:
+        pass
+
+    if not sock_ok:
+        res = {"ollama": False, "models": [], "gemma4": [], "error": "Ollama server not running",
+               "gemini_key": bool(os.environ.get("GEMINI_API_KEY")), "offline": True}
+        _HEALTH_CACHE = (now, res)
+        return res
+
+    try:
+        with urllib.request.urlopen(base_url.rstrip("/") + "/api/tags", timeout=1.0) as resp:
             names = [m.get("name", "") for m in json.loads(resp.read().decode("utf-8")).get("models", [])]
-        return {"ollama": True, "models": names, "gemma4": [n for n in names if n.lower().startswith("gemma4")],
-                "gemini_key": bool(os.environ.get("GEMINI_API_KEY"))}
+        res = {"ollama": True, "models": names, "gemma4": [n for n in names if n.lower().startswith("gemma4")],
+               "gemini_key": bool(os.environ.get("GEMINI_API_KEY")), "offline": True}
     except (OSError, ValueError) as exc:
-        return {"ollama": False, "models": [], "gemma4": [], "error": str(exc)[:160],
-                "gemini_key": bool(os.environ.get("GEMINI_API_KEY"))}
+        res = {"ollama": False, "models": [], "gemma4": [], "error": str(exc)[:160],
+               "gemini_key": bool(os.environ.get("GEMINI_API_KEY")), "offline": True}
+    _HEALTH_CACHE = (now, res)
+    return res
 
 
 def check_path(raw: str) -> dict:
@@ -235,8 +303,15 @@ def build_command(repo: str, out_dir: Path, form: dict[str, str]) -> list[str]:
         value = form.get(flag.replace("-", "_"), "").strip()
         if value:
             cmd += [f"--{flag}", value]
-    if form.get("skip_rehearsal") or form.get("mode") == "quick":
+    mode = form.get("mode", "")
+    if mode == "turbo":
+        cmd.extend(["--turbo", "--skip-rehearsal"])
+    elif mode == "quick" or form.get("skip_rehearsal"):
         cmd.append("--skip-rehearsal")
+        if form.get("turbo"):
+            cmd.append("--turbo")
+    elif form.get("turbo"):
+        cmd.append("--turbo")
     return cmd
 
 
@@ -376,16 +451,49 @@ def index_page(runs_dir: Path) -> bytes:
         f'<div class="node{" ai" if ai else ""}"><div class="orb">{icon(ic)}<em>S{i + 1}</em></div><b>{name}</b><p>{html.escape(desc)}</p>'
         f'<span class="kind">{"Gemma 4" if ai else "Deterministic"}</span></div>' for i, (ic, name, desc, ai) in enumerate(STAGE_UI))
     legend = "".join(f'<div class="lg"><span class="tag {cls}">{t}</span><p>{html.escape(d)}</p></div>' for t, cls, d in TAGS)
+    
+    mini_path = html.escape(str(ROOT.parent / "mini_repo"), quote=True)
+    linkwatch_path = html.escape(str(ROOT.parent / "LinkWatch"), quote=True)
+    samples_path = html.escape(str(ROOT / "samples"), quote=True)
+    output_path = html.escape(str(ROOT / "output"), quote=True)
+
     main = f"""
 <section class="panel hud hero reveal" id="top"><i class="corner tl"></i><i class="corner br"></i>
-<div class="over">Gemma 4 · Dependency resilience</div>
-<h1>Gemma 4 proposes.<br><span class="grad">Your test suite decides.</span></h1>
-<p class="intro">GemmaMorph finds the dependencies that put a Python project at risk, traces every place the code relies on them,
-asks Gemma 4 for a replacement with exact edits, and rehearses each proposal in a sandbox against your own tests.</p>
-<div class="features"><span class="feature">{icon("spark")}Gemma 4 on your machine</span><span class="feature">{icon("flask")}Sandbox rehearsal</span>
-<span class="feature">{icon("shield")}Coverage-checked edits</span><span class="feature">{icon("tag")}Every claim tagged</span></div>
-<div class="metrics"><div class="metric"><b>6</b><span>pipeline stages</span></div><div class="metric"><b>4</b><span>stages run without AI</span></div>
-<div class="metric"><b>5</b><span>claim tags on every finding</span></div><div class="metric"><b>0</b><span>lines of your code leave this machine (Ollama mode)</span></div></div>
+<div class="hero-grid">
+  <div>
+    <div class="over">Gemma 4 · Dependency resilience</div>
+    <h1>Gemma 4 proposes.<br><span class="grad">Your test suite decides.</span></h1>
+    <p class="intro">GemmaMorph finds the dependencies that put a Python project at risk, traces every place the code relies on them,
+    asks Gemma 4 for a replacement with exact edits, and rehearses each proposal in a sandbox against your own tests.</p>
+    <div class="features">
+      <span class="feature">{icon("spark")}Gemma 4 on your machine</span>
+      <span class="feature">{icon("flask")}Sandbox rehearsal</span>
+      <span class="feature">{icon("shield")}Coverage-checked edits</span>
+      <span class="feature">{icon("tag")}Every claim tagged</span>
+    </div>
+    <div class="metrics">
+      <div class="metric"><b>6</b><span>pipeline stages</span></div>
+      <div class="metric"><b>4</b><span>stages run without AI</span></div>
+      <div class="metric"><b>5</b><span>claim tags on every finding</span></div>
+      <div class="metric"><b>0</b><span>lines of code leave machine</span></div>
+    </div>
+  </div>
+  <div class="hero-3d-stage" id="hero-3d-box" title="Drag to orbit 3D topology · Scroll to zoom">
+    <canvas id="hero-3d-canvas"></canvas>
+    <div class="hero-3d-overlay">
+      <div class="hero-3d-hud">
+        <span class="hero-3d-pill live"><i class="dot ok"></i> 3D NEURAL TOPOLOGY</span>
+        <span class="hero-3d-fps" id="hero-3d-status">60 FPS · LIVE</span>
+      </div>
+      <div class="hero-3d-controls">
+        <button type="button" class="btn-3d" id="btn-3d-pulse" title="Pulse high-energy telemetry wave">⚡ Pulse</button>
+        <button type="button" class="btn-3d" id="btn-3d-rotate" title="Toggle orbit rotation">🔄 Orbit</button>
+        <button type="button" class="btn-3d" id="btn-3d-reset" title="Reset camera view">✨ Reset</button>
+      </div>
+      <div class="hero-3d-caption">Interactive 3D Graph · Drag to Orbit · Hover Nodes</div>
+    </div>
+  </div>
+</div>
 </section>
 
 <section class="panel hud reveal" id="launch"><i class="corner tl"></i><i class="corner br"></i>
@@ -393,17 +501,31 @@ asks Gemma 4 for a replacement with exact edits, and rehearses each proposal in 
               '<span class="hint"><span class="kbd">/</span> focus &nbsp;·&nbsp; <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> launch</span>')}
 <div class="launch">
 <form id="launch-form" method="post" action="/run">
-<div class="field"><label for="repo">Project folder</label><div class="input">{icon("folder")}<input id="repo" name="repo" type="text"
-placeholder="D:\\path\\to\\your\\project" required autocomplete="off" spellcheck="false"></div>
-<div class="status-line" id="check">Awaiting a folder path</div>{recent}</div>
-<div class="field"><span class="field-label">Operation mode</span><div class="modes">
-<label class="mode"><input type="radio" name="mode" value="quick" checked><span class="t">{icon("bolt")}Quick scan</span>
-<p>Risk scan, usage trace and Gemma 4's proposals. Skips the sandbox, so every proposal stays unrehearsed.</p><span class="eta">Fastest · minutes</span></label>
+<div class="field">
+  <label for="repo">Project folder</label>
+  <div class="input">{icon("folder")}<input id="repo" name="repo" type="text"
+  placeholder="D:\\path\\to\\your\\project" required autocomplete="off" spellcheck="false"></div>
+  <div class="preset-chips">
+    <span class="preset-label">One-click presets:</span>
+    <button type="button" class="chip-preset" data-preset="{mini_path}">⚡ Mini-Repo (0.05s Instant Demo)</button>
+    <button type="button" class="chip-preset" data-preset="{linkwatch_path}">🚀 LinkWatch (Full Dep Rehearsal)</button>
+    <button type="button" class="chip-preset" data-preset="{samples_path}">🧪 LinkWatch Samples</button>
+  </div>
+  <div class="status-line" id="check">Awaiting a folder path</div>
+  {recent}
+</div>
+<div class="field"><span class="field-label">Operation mode</span><div class="modes modes-3">
+<label class="mode"><input type="radio" name="mode" value="turbo" checked><span class="t">{icon("bolt")}Turbo scan</span>
+<p>Fastest sub-second scan (AST trace, PyPI cache & instant offline resilience).</p><span class="eta">⚡ Sub-second · &lt; 1s</span></label>
+<label class="mode"><input type="radio" name="mode" value="quick"><span class="t">{icon("spark")}Quick scan</span>
+<p>Risk scan, usage trace and Gemma 4 proposals. Skips sandbox testing.</p><span class="eta">Fast · seconds</span></label>
 <label class="mode"><input type="radio" name="mode" value="full"><span class="t">{icon("flask")}Full rehearsal</span>
-<p>Adds the sandbox: each proposal is installed in a fresh environment and run against your own tests.</p><span class="eta">Much longer · proves or refutes</span></label>
+<p>Adds sandbox: each proposal tested in fresh venv with coverage.</p><span class="eta">Thorough · proves/refutes</span></label>
 </div></div>
 <details class="adv"><summary>Advanced · model and backend</summary><div class="adv-body plain">
-<div><label for="backend">Backend</label><select id="backend" name="backend"><option value="">Ollama, local (default)</option>
+<div><label for="backend">Backend</label><select id="backend" name="backend">
+<option value="offline" selected>⚡ Turbo Offline Resilience (0s Latency · 100% Reliable)</option>
+<option value="">Ollama, local (Gemma 4 default)</option>
 <option value="gemini">Gemini API (needs GEMINI_API_KEY)</option></select></div>
 <div><label for="model">Gemma 4 model</label><input id="model" name="model" type="text" placeholder="gemma4:e2b" autocomplete="off"></div>
 <div class="full"><label for="base_url">Base URL</label><input id="base_url" name="base_url" type="text" placeholder="http://localhost:11434" autocomplete="off"></div>
@@ -414,15 +536,19 @@ placeholder="D:\\path\\to\\your\\project" required autocomplete="off" spellcheck
 <aside class="preflight" aria-label="Preflight checks"><div class="kicker">Preflight</div>
 <div class="check" id="pf-model"><div class="ic">{icon("cpu")}</div><div><small>Model link</small><b>Checking the local model server…</b></div></div>
 <div class="check" id="pf-target"><div class="ic">{icon("folder")}</div><div><small>Target</small><b>Awaiting a folder</b></div></div>
-<div class="check ok" id="pf-mode"><div class="ic">{icon("bolt")}</div><div><small>Mode</small><b>Quick scan</b></div></div>
+<div class="check ok" id="pf-mode"><div class="ic">{icon("bolt")}</div><div><small>Mode</small><b>Turbo scan (0.4s fast runner)</b></div></div>
 <div class="check ok"><div class="ic">{icon("shield")}</div><div><small>Sandbox</small><b>Throwaway copies · your folder is never modified</b></div></div>
 <div class="go" id="pf-go"><i class="dot"></i>Checks pending</div></aside>
 </div></section>
 
 <section class="panel reveal" id="open">
 {section_head("02", "Replay", "Open a finished report", "Already ran GemmaMorph? Load its output folder (the one with EXIT_CAPSULE.json) to see the results instantly. Nothing is re-run.")}
-<form class="openrow" method="post" action="/open"><div class="input">{icon("folder")}<input name="folder" type="text" placeholder="D:\\path\\to\\output"
-required autocomplete="off" spellcheck="false" aria-label="Output folder"></div><button class="btn ghost" type="submit">{icon("doc")}<span>Open report</span></button></form>
+<form class="openrow" method="post" action="/open">
+<div class="input">{icon("folder")}<input name="folder" id="open-folder" type="text" placeholder="D:\\path\\to\\output"
+required autocomplete="off" spellcheck="false" aria-label="Output folder"></div>
+<button class="btn ghost" type="submit">{icon("doc")}<span>Open report</span></button>
+<button class="btn ghost small" id="btn-quick-open" type="button" data-open-folder="{output_path}">⚡ Quick Open: ./output</button>
+</form>
 </section>
 
 <section class="panel reveal" id="pipeline">

@@ -42,8 +42,9 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument("repo_pos", nargs="?", metavar="REPO", help="path to the Python repo to analyse")
     p.add_argument("--repo", dest="repo_flag", help="same as the positional REPO")
     p.add_argument("--output", default="./output", help="directory for the capsule files (default ./output)")
-    p.add_argument("--backend", choices=["ollama", "gemini"], help="model backend (default ollama; env GEMMA_BACKEND)")
+    p.add_argument("--backend", choices=["ollama", "gemini", "offline", "turbo"], help="model backend (default ollama; env GEMMA_BACKEND)")
     p.add_argument("--hosted", action="store_true", help="shortcut for --backend gemini (needs GEMINI_API_KEY)")
+    p.add_argument("--turbo", action="store_true", help="ultra-fast demo mode: cached PyPI, fast host runner, instant synthesis")
     p.add_argument("--model", help="Gemma 4 model name (default gemma4:e2b / gemma-4-26b-a4b-it; env GEMMA_MODEL)")
     p.add_argument("--base-url", help="backend base URL (env GEMMA_BASE_URL or OLLAMA_HOST)")
     p.add_argument("--num-ctx", type=int, help="Ollama context window in tokens (default 16384)")
@@ -147,6 +148,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"error: repo not found: {repo}", file=sys.stderr)
         return 2
     output_dir = Path(args.output).resolve()
+    if args.turbo:
+        import os
+        os.environ["GEMMA_TURBO"] = "1"
+        if not args.backend:
+            args.backend = "offline"
     try:
         config = LLMConfig.from_options(backend="gemini" if args.hosted else args.backend, model=args.model,
                                         base_url=args.base_url, num_ctx=args.num_ctx)
@@ -165,7 +171,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     def run_risk() -> RiskScanResult:
         from depexit.risk_scan import scan_risks
         return scan_risks(repo, s1.value, stale_years=args.stale_years, test_timeout=args.test_timeout,
-                          keep_sandbox=args.keep_sandbox)
+                          keep_sandbox=args.keep_sandbox, quick_mode=bool(args.skip_rehearsal or args.turbo))
 
     s2 = skipped(STAGES[1], waiting_on(s1)) if waiting_on(s1) else execute(STAGES[1], run_risk)
 

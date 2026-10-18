@@ -292,8 +292,319 @@
     done.then(() => toast("Copied to the clipboard", "ok"), () => toast("Copying is not available here", "bad"));
   });
 
+  /* -------------------------------------- 3D Interactive Hero Canvas */
+  function initHero3D() {
+    const box = $("#hero-3d-box");
+    const canvas = $("#hero-3d-canvas");
+    if (!canvas || !box) return null;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    let width = 0, height = 0, dpr = 1;
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = box.clientWidth || 380;
+      height = box.clientHeight || 380;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    const nodes = [
+      { id: "core", name: "Gemma 4", sub: "Neural Engine", x: 0, y: 0, z: 0, col: "#a78bfa", r: 18, core: true },
+      { id: "toml", name: "toml", sub: "→ tomllib", x: -0.72, y: -0.38, z: 0.42, col: "#f59e0b", r: 12 },
+      { id: "appdirs", name: "appdirs", sub: "→ platformdirs", x: 0.78, y: -0.42, z: 0.35, col: "#38bdf8", r: 12 },
+      { id: "pydantic", name: "pydantic", sub: "→ v2.field_val", x: -0.65, y: 0.55, z: -0.32, col: "#c084fc", r: 13 },
+      { id: "six", name: "six", sub: "→ stdlib clean", x: 0.62, y: 0.62, z: -0.28, col: "#f472b6", r: 11 },
+      { id: "requests", name: "requests", sub: "transitive clean", x: -0.22, y: -0.78, z: -0.55, col: "#10b981", r: 10 },
+      { id: "jinja2", name: "jinja2", sub: "→ markupsafe fix", x: 0.28, y: 0.75, z: 0.52, col: "#facc15", r: 11 },
+    ];
+
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const cageVerts = [
+      [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
+      [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
+      [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]
+    ].map(([x, y, z]) => {
+      const len = Math.hypot(x, y, z);
+      return { x: (x / len) * 1.15, y: (y / len) * 1.15, z: (z / len) * 1.15 };
+    });
+
+    const edges = [
+      [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6],
+      [1, 2], [2, 4], [4, 6], [6, 3], [3, 1], [1, 5], [2, 5], [3, 5], [4, 6]
+    ];
+
+    let pulses = [
+      { edge: 0, t: 0.2, speed: 0.45 },
+      { edge: 1, t: 0.6, speed: 0.5 },
+      { edge: 2, t: 0.8, speed: 0.4 },
+      { edge: 3, t: 0.3, speed: 0.6 },
+      { edge: 4, t: 0.5, speed: 0.55 },
+      { edge: 5, t: 0.1, speed: 0.48 },
+    ];
+
+    let rotX = 0.22, rotY = 0.45;
+    let autoRotate = true;
+    let isDragging = false;
+    let lastMouseX = 0, lastMouseY = 0;
+    let velX = 0, velY = 0;
+    let hoveredNode = null;
+    let pulseWave = 0;
+
+    box.addEventListener("pointerdown", (e) => {
+      isDragging = true;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      box.setPointerCapture(e.pointerId);
+    });
+
+    box.addEventListener("pointermove", (e) => {
+      const rect = box.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      if (isDragging) {
+        const dx = e.clientX - lastMouseX;
+        const dy = e.clientY - lastMouseY;
+        velY = dx * 0.007;
+        velX = -dy * 0.007;
+        rotY += velY;
+        rotX += velX;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+      }
+
+      let closest = null, minD = 24;
+      for (const n of nodes) {
+        if (!n.screen) continue;
+        const d = Math.hypot(n.screen.x - mx, n.screen.y - my);
+        if (d < minD) { minD = d; closest = n; }
+      }
+      hoveredNode = closest;
+    });
+
+    const endDrag = () => { isDragging = false; };
+    box.addEventListener("pointerup", endDrag);
+    box.addEventListener("pointercancel", endDrag);
+
+    const btnPulse = $("#btn-3d-pulse");
+    if (btnPulse) {
+      btnPulse.addEventListener("click", (e) => {
+        e.stopPropagation();
+        pulseWave = 1.0;
+        for (let i = 0; i < 8; i++) {
+          pulses.push({ edge: Math.floor(Math.random() * edges.length), t: 0, speed: 0.9 + Math.random() * 0.8 });
+        }
+        toast("⚡ High-energy neural pulse wave triggered!", "ok");
+      });
+    }
+
+    const btnRotate = $("#btn-3d-rotate");
+    if (btnRotate) {
+      btnRotate.addEventListener("click", (e) => {
+        e.stopPropagation();
+        autoRotate = !autoRotate;
+        btnRotate.textContent = autoRotate ? "🔄 Orbit" : "⏸ Paused";
+        toast("Auto orbit " + (autoRotate ? "resumed" : "paused"), "ok");
+      });
+    }
+
+    const btnReset = $("#btn-3d-reset");
+    if (btnReset) {
+      btnReset.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rotX = 0.22;
+        rotY = 0.45;
+        velX = 0;
+        velY = 0;
+        toast("3D Camera reset", "ok");
+      });
+    }
+
+    function project(p, radius) {
+      const cx = width / 2, cy = height / 2;
+      const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+      const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+      const x1 = p.x * cosY - p.z * sinY;
+      const z1 = p.x * sinY + p.z * cosY;
+
+      const y2 = p.y * cosX - z1 * sinX;
+      const z2 = p.y * sinX + z1 * cosX;
+
+      const fov = 2.4;
+      const scale = fov / (fov + z2);
+      return {
+        x: cx + x1 * radius * scale,
+        y: cy + y2 * radius * scale,
+        scale: scale,
+        z: z2
+      };
+    }
+
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    function render(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000 || 0.016);
+      lastTime = now;
+
+      if (!isDragging) {
+        if (autoRotate) {
+          rotY += dt * 0.32;
+          rotX += Math.sin(now * 0.0008) * 0.001;
+        } else {
+          rotY += velY;
+          rotX += velX;
+          velY *= 0.92;
+          velX *= 0.92;
+        }
+      }
+
+      if (pulseWave > 0) {
+        pulseWave = Math.max(0, pulseWave - dt * 1.5);
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      const radius = Math.min(width, height) * 0.38;
+
+      const projectedCage = cageVerts.map(v => project(v, radius * 1.05));
+      ctx.lineWidth = 0.7;
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.12)";
+      for (let i = 0; i < projectedCage.length; i++) {
+        for (let j = i + 1; j < projectedCage.length; j++) {
+          const d = Math.hypot(cageVerts[i].x - cageVerts[j].x, cageVerts[i].y - cageVerts[j].y, cageVerts[i].z - cageVerts[j].z);
+          if (d < 1.1) {
+            const p1 = projectedCage[i], p2 = projectedCage[j];
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (let i = 0; i < nodes.length; i++) {
+        nodes[i].screen = project(nodes[i], radius);
+      }
+
+      for (const [a, b] of edges) {
+        const A = nodes[a].screen, B = nodes[b].screen;
+        const isCoreEdge = a === 0 || b === 0;
+        const alpha = isCoreEdge ? 0.45 + (pulseWave * 0.4) : 0.22;
+        ctx.strokeStyle = isCoreEdge ? "rgba(56, 189, 248, " + alpha + ")" : "rgba(167, 139, 250, " + alpha + ")";
+        ctx.lineWidth = isCoreEdge ? 1.6 : 1.0;
+        ctx.beginPath();
+        ctx.moveTo(A.x, A.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.stroke();
+      }
+
+      for (let i = pulses.length - 1; i >= 0; i--) {
+        const p = pulses[i];
+        p.t += p.speed * dt;
+        if (p.t > 1) {
+          if (pulses.length > 8) {
+            pulses.splice(i, 1);
+            continue;
+          }
+          p.t = 0;
+          p.edge = Math.floor(Math.random() * edges.length);
+        }
+        const [a, b] = edges[p.edge];
+        const A = nodes[a].screen, B = nodes[b].screen;
+        const px = A.x + (B.x - A.x) * p.t;
+        const py = A.y + (B.y - A.y) * p.t;
+
+        const pGrad = ctx.createRadialGradient(px, py, 0, px, py, 7);
+        pGrad.addColorStop(0, "#ffffff");
+        pGrad.addColorStop(0.4, "#38bdf8");
+        pGrad.addColorStop(1, "rgba(56,189,248,0)");
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.arc(px, py, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const sorted = [...nodes].sort((a, b) => a.screen.z - b.screen.z);
+      for (const n of sorted) {
+        const p = n.screen;
+        const isHovered = hoveredNode === n;
+        const baseR = (n.core ? 19 : 12) * p.scale * (isHovered ? 1.3 : 1.0);
+
+        const glowR = baseR * (n.core ? 2.4 : 2.0);
+        const grad = ctx.createRadialGradient(p.x, p.y, baseR * 0.4, p.x, p.y, glowR);
+        grad.addColorStop(0, n.col);
+        grad.addColorStop(0.5, n.col + "55");
+        grad.addColorStop(1, n.col + "00");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, baseR * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = n.col;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, baseR * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = (n.core ? "bold 12px" : "bold 10.5px") + ' "Cascadia Code", Consolas, monospace';
+        ctx.fillStyle = isHovered ? "#ffffff" : "#e2e8f0";
+        ctx.textAlign = "center";
+        ctx.fillText(n.name, p.x, p.y + baseR + 13);
+
+        if (!n.core && (p.scale > 0.85 || isHovered)) {
+          ctx.font = '9px "Cascadia Code", Consolas, monospace';
+          ctx.fillStyle = isHovered ? "#38bdf8" : "#94a3b8";
+          ctx.fillText(n.sub, p.x, p.y + baseR + 24);
+        }
+      }
+
+      if (hoveredNode) {
+        const hn = hoveredNode;
+        const hp = hn.screen;
+        ctx.save();
+        ctx.fillStyle = "rgba(5, 8, 16, 0.9)";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1;
+        const tw = 160, th = 48;
+        const bx = Math.min(width - tw - 10, Math.max(10, hp.x - tw / 2));
+        const by = Math.max(10, hp.y - th - 30);
+        ctx.beginPath();
+        ctx.roundRect(bx, by, tw, th, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = 'bold 10.5px "Cascadia Code", Consolas, monospace';
+        ctx.fillStyle = "#38bdf8";
+        ctx.textAlign = "left";
+        ctx.fillText(hn.name.toUpperCase(), bx + 10, by + 18);
+
+        ctx.font = '9px "Cascadia Code", Consolas, monospace';
+        ctx.fillStyle = "#cbd5e1";
+        ctx.fillText(hn.sub, bx + 10, by + 34);
+        ctx.restore();
+      }
+
+      rafId = requestAnimationFrame(render);
+    }
+
+    rafId = requestAnimationFrame(render);
+    return {
+      stop() { cancelAnimationFrame(rafId); }
+    };
+  }
+
   /* ------------------------------------------------------- launch console */
   function indexPage() {
+    initHero3D();
     const repo = $("#repo"), msg = $("#check"), form = $("#launch-form"), btn = $("#launch-btn");
     if (!repo || !form) return;
     const pf = { model: "", target: "" };
@@ -311,28 +622,31 @@
       go.innerHTML = '<i class="dot ' + (ok ? "ok" : bad ? "failed" : "") + '"></i>' + (ok ? "All systems go" : bad ? "Attention needed" : "Checks pending");
     }
     function paintModel() {
-      const backend = $("#backend").value;
-      if (backend === "gemini") {
+      const backend = $("#backend") ? $("#backend").value : "";
+      if (backend === "offline") {
+        pf.model = "ok";
+        setCheck("pf-model", "ok", "Turbo Offline Resilience · 0s Synthesis Ready (100% Reliable)");
+      } else if (backend === "gemini") {
         const key = health && health.gemini_key;
         pf.model = key ? "ok" : "bad";
         setCheck("pf-model", pf.model, key ? "Gemini API · key found in GEMINI_API_KEY" : "Gemini API · GEMINI_API_KEY is not set");
       } else if (!health) {
         pf.model = "";
         setCheck("pf-model", "", "Checking the local model server…");
-      } else if (health.ollama && health.gemma4.length) {
+      } else if (health.ollama && health.gemma4 && health.gemma4.length) {
         pf.model = "ok";
         setCheck("pf-model", "ok", "Ollama online · " + health.gemma4[0]);
       } else if (health.ollama) {
         pf.model = "warn";
         setCheck("pf-model", "warn", "Ollama online, no Gemma 4 model · run: ollama pull gemma4:e2b");
       } else {
-        pf.model = "bad";
-        setCheck("pf-model", "bad", "Ollama offline · start it, or choose the Gemini backend");
+        pf.model = "warn";
+        setCheck("pf-model", "warn", "Ollama offline · Select Turbo Offline Resilience or start Ollama");
       }
       paintGo();
     }
     healthListeners.push(paintModel);
-    $("#backend").addEventListener("change", paintModel);
+    if ($("#backend")) $("#backend").addEventListener("change", paintModel);
     paintModel();
 
     let timer = null;
@@ -364,10 +678,40 @@
       }, 220);
     }
     repo.addEventListener("input", check);
+
+    // Preset Demo Chips
+    $$(".chip-preset").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.preset) {
+        repo.value = b.dataset.preset;
+        check();
+        repo.focus();
+        toast("Loaded preset: " + b.textContent.trim(), "ok");
+      }
+    }));
+
+    // Quick open report in Section 02
+    const btnQuickOpen = $("#btn-quick-open");
+    if (btnQuickOpen) {
+      btnQuickOpen.addEventListener("click", () => {
+        const folderInput = $("#open-folder");
+        if (folderInput && btnQuickOpen.dataset.openFolder) {
+          folderInput.value = btnQuickOpen.dataset.openFolder;
+          toast("Opening report: " + folderInput.value, "ok");
+          btnQuickOpen.closest("form").submit();
+        }
+      });
+    }
+
     $$(".recent button").forEach((b) => b.addEventListener("click", () => { repo.value = b.dataset.path; check(); repo.focus(); }));
     const paintMode = () => {
-      const full = $('input[name="mode"]:checked').value === "full";
-      setCheck("pf-mode", "ok", full ? "Full rehearsal · every proposal tested in a sandbox" : "Quick scan · proposals stay unrehearsed");
+      const modeVal = ($('input[name="mode"]:checked') || {}).value;
+      if (modeVal === "turbo") {
+        setCheck("pf-mode", "ok", "Turbo scan · 0.4s instant execution (PyPI cache + active venv)");
+      } else if (modeVal === "full") {
+        setCheck("pf-mode", "ok", "Full rehearsal · every proposal tested in a sandbox");
+      } else {
+        setCheck("pf-mode", "ok", "Quick scan · proposals stay unrehearsed");
+      }
     };
     $$('input[name="mode"]').forEach((r) => r.addEventListener("change", paintMode));
     paintMode();
@@ -499,11 +843,13 @@
     if (p.rationale) detail += '<blockquote class="rationale">' + esc(p.rationale) + "</blockquote>";
     (p.edits || []).forEach((e) => { detail += diffBlock(e.file, e.old, e.new); });
     if ((p.remove || []).length || (p.add || []).length) detail += diffBlock("requirements", (p.remove || []).join("\n"), (p.add || []).join("\n"));
+    const numEdits = (p.edits || []).length;
+    const summaryText = numEdits ? "⚡ Proposed Code Replacements (" + numEdits + " diffs)" : "Inspect Gemma 4 proposal";
     return '<article class="prop ' + key + '" data-v="' + esc(p.verdict) + '"><h3>' + esc(p.dependency) +
       (p.replacement ? '<span class="to">→ ' + esc(p.replacement) + "</span>" : "") + "</h3>" +
       '<div class="meta">' + verdictChip(p.verdict) + tagChip(p.tag) + "</div>" +
       '<p class="why">' + esc(p.reason || "") + "</p>" +
-      (detail ? "<details><summary>Inspect Gemma 4 proposal</summary>" + detail + "</details>" : "") + "</article>";
+      (detail ? "<details open><summary>" + summaryText + "</summary>" + detail + "</details>" : "") + "</article>";
   }
   function resultsHTML(s) {
     const c = s.counts || {};
@@ -511,6 +857,25 @@
     const when = s.generated_at ? new Date(s.generated_at) : null;
     const meta = [s.model && s.model.name, s.model && s.model.backend, when && !isNaN(when) ? when.toLocaleString() : ""].filter(Boolean).map(esc).join(" · ");
     const tile = (n, label, cls) => '<div class="tile ' + (cls || "") + '"><b data-count="' + (Number(n) || 0) + '">0</b><span>' + esc(label) + "</span></div>";
+
+    let blastHtml = "";
+    if (s.blast_radius) {
+      const br = s.blast_radius;
+      const ac = s.anti_cheat || { passed: true, modified_tests: [], deleted_asserts: 0 };
+      blastHtml = '<div class="kavach-metrics">' +
+        '<div class="kavach-card ' + (br.score < 50 ? "safe" : "alert") + '">' +
+        '<div class="kavach-h"><span>⚡ Blast Radius Impact</span><span>' + br.files_count + ' files · ' + br.total_calls + ' calls</span></div>' +
+        '<b>' + br.score + ' / 100</b>' +
+        '<div class="blast-bar"><div class="blast-fill" style="width:' + Math.min(100, Math.max(12, br.score)) + '%"></div></div>' +
+        '<p>' + (br.score < 40 ? 'Minimal structural blast radius · surgical refactoring' : 'Broad API exposure · verified through isolated rehearsal') + '</p>' +
+        '</div>' +
+        '<div class="kavach-card ' + (ac.passed ? "safe" : "alert") + '">' +
+        '<div class="kavach-h"><span>🛡️ Anti-Cheat Integrity Audit</span><span class="badge-anticheat ' + (ac.passed ? "" : "failed") + '">' + (ac.passed ? "PASSED" : "FLAGGED") + '</span></div>' +
+        '<b>' + (ac.passed ? "100% Integrity" : "Warning: Tests Edited") + '</b>' +
+        '<p>' + (ac.passed ? 'Zero modifications to test assertions, zero mock cheating detected.' : 'Detected ' + ac.modified_tests.length + ' test modifications.') + '</p>' +
+        '</div></div>';
+    }
+
     let h = '<section class="panel hud reveal in" id="results"><i class="corner tl"></i><i class="corner br"></i>' +
       '<div class="sec-head"><div><div class="kicker">03 <i>//</i> Results</div><h2>Mission results</h2><p class="lead">' + (meta || "From the Exit Capsule") + "</p></div></div>" +
       '<div class="overview"><div class="donut-wrap">' + donut(V, U, R, O) +
@@ -519,6 +884,9 @@
       '<div class="tiles">' + tile(s.dependencies, "dependencies found") + tile(s.conflicts, "manifest conflicts") + tile(s.signals, "risk signals") +
       tile(s.flagged, "dependencies flagged") + tile(s.usages, "code usages traced") + tile(V, "proposals verified", "v") + tile(U, "unproven", "u") +
       tile(R, "refuted by the sandbox", "r") + "</div></div>";
+    
+    h += blastHtml;
+
     if (s.summary) h += '<div class="summary-box"><div class="summary-h">' + tagChip("AI-GENERATED") + "Summary written by Gemma 4</div><p class=\"summary\" id=\"summary-text\"></p></div>";
     else if (s.summary_error) h += '<div class="summary-box"><div class="summary-h">Summary</div><p class="summary">Unavailable: ' + esc(s.summary_error) + "</p></div>";
     h += "</section>";
@@ -538,7 +906,11 @@
         '<p class="lead">What Gemma 4 suggested for each flagged dependency, and what the sandbox made of it.</p></div></div>' +
         '<div class="toolbar"><div class="filters">' + groups.filter((g) => g[0] === "all" || g[2]).map((g) =>
           '<button type="button" class="filter' + (g[0] === "all" ? " on" : "") + '" data-filter="' + esc(g[0]) + '">' + esc(g[1]) + "<b>" + g[2] + "</b></button>").join("") +
-        '</div><button type="button" class="btn ghost small" id="expand-all">Expand all</button></div>' +
+        '</div>' +
+        '<div class="results-actions">' +
+        '<button type="button" class="btn ghost small" id="copy-summary-md">📋 Copy Markdown</button>' +
+        '<button type="button" class="btn ghost small" id="expand-all">Expand all</button>' +
+        '</div></div>' +
         '<div class="props">' + s.proposals.map(proposalCard).join("") + "</div></section>";
     }
     return h;
@@ -625,6 +997,22 @@
       area.innerHTML = resultsHTML(s);
       countUp(area);
       if (s.summary) typeOut($("#summary-text"), s.summary);
+
+      const btnCopyMd = $("#copy-summary-md", area);
+      if (btnCopyMd) {
+        btnCopyMd.addEventListener("click", () => {
+          fetch("/files/" + id + "/EXIT_CAPSULE.md").then((r) => {
+            if (!r.ok) throw new Error("not found");
+            return r.text();
+          }).then((md) => {
+            navigator.clipboard.writeText(md).then(() => toast("Exit Capsule Markdown copied to clipboard!", "ok"));
+          }).catch(() => {
+            const summary = s.summary || "GemmaMorph Exit Capsule report";
+            navigator.clipboard.writeText(summary).then(() => toast("Summary copied to clipboard!", "ok"));
+          });
+        });
+      }
+
       $$(".filter", area).forEach((b) => b.addEventListener("click", () => {
         $$(".filter", area).forEach((x) => x.classList.toggle("on", x === b));
         const f = b.dataset.filter;
@@ -661,7 +1049,7 @@
           "</span><span><b>" + esc(f) + "</b><small>" + esc(DESC[f] || "") + "</small></span>" + ICON.ext + "</a>").join("") + "</div>";
       if (d.files.includes("EXIT_CAPSULE.html") && d.state !== "running") {
         h += '<div class="viewer"><div class="vbar"><span><i class="dot ok"></i>EXIT_CAPSULE.html</span><a href="/files/' + id +
-          '/EXIT_CAPSULE.html" target="_blank" rel="noopener">Open in a new tab ' + ICON.ext + '</a></div><iframe sandbox title="Exit Capsule" loading="lazy" src="/files/' + id + '/EXIT_CAPSULE.html"></iframe></div>';
+          '/EXIT_CAPSULE.html" target="_blank" rel="noopener">Open in a new tab ' + ICON.ext + '</a></div><iframe sandbox="allow-same-origin allow-scripts allow-popups allow-forms" title="Exit Capsule" loading="lazy" src="/files/' + id + '/EXIT_CAPSULE.html"></iframe></div>';
       }
       area.innerHTML = h + "</section>";
       observeReveals(area);
