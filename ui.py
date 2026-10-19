@@ -408,18 +408,55 @@ def sidebar(nav: tuple, current_id: Optional[str] = None) -> str:
 <div class="row"><span>ENGINE</span><b>Gemma 4</b></div>
 <div class="row"><span>SANDBOX</span><b>fresh venv</b></div>
 <div class="row"><span>SOURCE</span><b>read-only</b></div>
-<button class="motion" id="motion" type="button" aria-pressed="true">{icon("wave")}<span>Motion on</span></button></div>
+<button class="motion" id="motion" type="button" aria-pressed="true">{icon("wave")}<span>Motion on</span></button>
+<button class="motion" id="btn-replay-splash" type="button">{icon("spark")}<span>Intro splash</span></button></div>
 </aside>"""
+
+
+def splash_html() -> str:
+    return f"""<div id="splash" class="splash-screen" role="dialog" aria-modal="true" aria-label="GemmaMorph Welcome">
+  <div class="splash-content">
+    <div class="splash-emblem-wrap">
+      <div class="splash-orb-glow"></div>
+      <div class="splash-ring ring-1"></div>
+      <div class="splash-ring ring-2"></div>
+      <div class="splash-ring ring-3"></div>
+      <div class="splash-glyph">{LOGO}</div>
+    </div>
+    <div class="splash-kicker">Autonomous Dependency Resilience Engine</div>
+    <h1 class="splash-title">GEMMAMORPH</h1>
+    <p class="splash-tagline">Gemma 4 proposes. <span class="splash-glow-text">Your test suite decides.</span></p>
+    
+    <div class="splash-chips">
+      <span class="sp-chip">AST Usage Tracer</span>
+      <span class="sp-sep">&bull;</span>
+      <span class="sp-chip">Gemma 4 Synthesis</span>
+      <span class="sp-sep">&bull;</span>
+      <span class="sp-chip">Isolated Sandbox Rehearsal</span>
+    </div>
+
+    <div class="splash-cta">
+      <button type="button" id="splash-enter-btn" class="splash-btn" aria-label="Enter Command Interface">
+        <span class="splash-key-badge">ENTER ↵</span>
+        <span class="splash-btn-label">INITIALIZE COMMAND INTERFACE</span>
+      </button>
+      <div class="splash-hint">Press <kbd class="splash-kbd">ENTER</kbd> or click anywhere to launch interface</div>
+    </div>
+  </div>
+  <div class="splash-grid-floor"></div>
+</div>"""
 
 
 def shell(title: str, page_kind: str, crumb: str, heading: str, main: str, nav: tuple,
           config: Optional[dict] = None, current_id: Optional[str] = None) -> bytes:
     cfg = json.dumps({"page": page_kind, **(config or {})}).replace("<", "\\u003c")
+    splash = splash_html() if page_kind == "index" else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark"><title>{html.escape(title)}</title><link rel="icon" href="{FAVICON}">
 {HEAD_JS}<link rel="stylesheet" href="/static/gemmamorph.css"></head>
 <body data-page="{page_kind}">
+{splash}
 <canvas id="bg" aria-hidden="true"></canvas><div class="mesh" aria-hidden="true"></div><div class="scan-veil" aria-hidden="true"></div>
 {sidebar(nav, current_id)}
 <div class="shell">

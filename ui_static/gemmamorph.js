@@ -606,6 +606,46 @@
   function indexPage() {
     initHero3D();
     const repo = $("#repo"), msg = $("#check"), form = $("#launch-form"), btn = $("#launch-btn");
+    const splash = $("#splash");
+
+    function dismissSplash() {
+      if (!splash || splash.classList.contains("dismissed")) return;
+      splash.classList.add("dismissed");
+      setTimeout(() => {
+        splash.style.display = "none";
+        if (repo) repo.focus();
+      }, 550);
+    }
+
+    if (splash) {
+      const enterBtn = $("#splash-enter-btn");
+      if (enterBtn) {
+        enterBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dismissSplash();
+        });
+      }
+      splash.addEventListener("click", () => {
+        dismissSplash();
+      });
+      window.addEventListener("keydown", (e) => {
+        if (splash && !splash.classList.contains("dismissed")) {
+          if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+            e.preventDefault();
+            dismissSplash();
+          }
+        }
+      });
+      const replayBtn = $("#btn-replay-splash");
+      if (replayBtn) {
+        replayBtn.addEventListener("click", () => {
+          splash.style.display = "flex";
+          void splash.offsetWidth;
+          splash.classList.remove("dismissed");
+        });
+      }
+    }
+
     if (!repo || !form) return;
     const pf = { model: "", target: "" };
     const setCheck = (id, state, text) => {
