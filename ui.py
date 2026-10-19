@@ -414,7 +414,12 @@ def sidebar(nav: tuple, current_id: Optional[str] = None) -> str:
 
 
 def splash_html() -> str:
-    return f"""<div id="splash" class="splash-screen" role="dialog" aria-modal="true" aria-label="GemmaMorph Welcome">
+    return f"""<div id="splash" class="splash-screen" role="dialog" aria-modal="true" aria-label="GemmaMorph 3D Welcome">
+  <canvas id="splash-3d-canvas" class="splash-3d-canvas"></canvas>
+  <div class="splash-3d-hud">
+    <span class="splash-3d-pill"><i class="dot ok"></i> 3D GENETIC HELIX TOPOLOGY</span>
+    <span class="splash-3d-hint">DRAG TO ORBIT · SCROLL TO ZOOM</span>
+  </div>
   <div class="splash-content">
     <div class="splash-emblem-wrap">
       <div class="splash-orb-glow"></div>
@@ -440,10 +445,9 @@ def splash_html() -> str:
         <span class="splash-key-badge">ENTER ↵</span>
         <span class="splash-btn-label">INITIALIZE COMMAND INTERFACE</span>
       </button>
-      <div class="splash-hint">Press <kbd class="splash-kbd">ENTER</kbd> or click anywhere to launch interface</div>
+      <div class="splash-hint">Press <kbd class="splash-kbd">ENTER</kbd> or click to enter mission control</div>
     </div>
   </div>
-  <div class="splash-grid-floor"></div>
 </div>"""
 
 
