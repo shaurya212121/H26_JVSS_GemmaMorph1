@@ -602,7 +602,7 @@
     };
   }
 
-  /* ------------------------------------------- 3D Double-Helix Splash Engine */
+  /* --------------------------------- 3D Cyber Constellation Splash Engine */
   function initSplash3D(canvas) {
     if (!canvas) return null;
     const ctx = canvas.getContext("2d");
@@ -617,57 +617,60 @@
       canvas.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       cx = W * 0.5;
-      cy = H * 0.5;
+      cy = H * 0.48;
     }
     resize();
     window.addEventListener("resize", resize, { passive: true });
 
-    // Double Helix parameters
-    const PAIRS = 68;
-    const strandA = [];
-    const strandB = [];
-    const rungs = [];
+    // Orbital Halo nodes that frame the perimeter (leaving center clean)
+    const RING_COUNT = 44;
+    const ringNodes = [];
+    const rx = Math.min(W * 0.44, 520);
+    const rz = Math.min(W * 0.38, 450);
 
-    const helixRadius = Math.min(W * 0.22, 210);
-    const totalHeight = Math.max(H * 1.25, 900);
-    const twistLoops = 4.2;
-
-    for (let i = 0; i < PAIRS; i++) {
-      const frac = i / (PAIRS - 1);
-      const y = (frac - 0.5) * totalHeight;
-      const angle = frac * Math.PI * 2 * twistLoops;
-      strandA.push({ x: 0, y, z: 0, angle });
-      strandB.push({ x: 0, y, z: 0, angle: angle + Math.PI });
-      rungs.push({ a: i, b: i });
+    for (let i = 0; i < RING_COUNT; i++) {
+      const th = (i / RING_COUNT) * Math.PI * 2;
+      const y = Math.sin(th * 3) * 65 + (Math.sin(th * 2) * 30);
+      ringNodes.push({
+        x: Math.cos(th) * rx,
+        y: y,
+        z: Math.sin(th) * rz,
+        baseTh: th,
+        size: 3 + Math.random() * 2,
+        core: i % 4 === 0,
+        col: i % 3 === 0 ? "#38bdf8" : i % 5 === 0 ? "#a78bfa" : "#7dd3fc",
+      });
     }
 
-    // Floating Quantum Codon Dust
-    const DUST_COUNT = 90;
-    const dust = Array.from({ length: DUST_COUNT }, () => {
-      const rad = 140 + Math.random() * 320;
-      const th = Math.random() * Math.PI * 2;
-      return {
-        x: Math.cos(th) * rad,
-        y: (Math.random() - 0.5) * totalHeight * 1.1,
-        z: Math.sin(th) * rad,
-        size: 1 + Math.random() * 2.2,
-        speed: 0.003 + Math.random() * 0.008,
-        col: Math.random() > 0.45 ? "#38bdf8" : Math.random() > 0.5 ? "#a78bfa" : "#f472b6",
-        baseAlpha: 0.3 + Math.random() * 0.5,
-      };
-    });
+    // Ambient floating star dust strictly OUTSIDE center zone
+    const AMBIENT_COUNT = 60;
+    const ambientNodes = [];
+    while (ambientNodes.length < AMBIENT_COUNT) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 360 + Math.random() * (Math.max(W, H) * 0.45);
+      const x = Math.cos(angle) * dist;
+      const y = (Math.random() - 0.5) * H * 0.85;
+      const z = Math.sin(angle) * dist * 0.8;
+      // Skip anything entering the center reading box
+      if (Math.abs(x) < 320 && Math.abs(y) < 180) continue;
+      ambientNodes.push({
+        x, y, z,
+        size: 1 + Math.random() * 1.8,
+        col: Math.random() > 0.5 ? "#38bdf8" : "#94a3b8",
+        alpha: 0.2 + Math.random() * 0.4,
+        drift: (Math.random() - 0.5) * 0.2,
+      });
+    }
 
-    // Energy pulses traveling along the strands
+    // Telemetry sparks traveling along the ring
     const pulses = [
-      { t: 0.1, speed: 0.32, dir: 1, color: "#38bdf8" },
-      { t: 0.6, speed: 0.28, dir: 1, color: "#a78bfa" },
-      { t: 0.85, speed: 0.35, dir: -1, color: "#22d3ee" },
-      { t: 0.35, speed: 0.25, dir: -1, color: "#f472b6" },
+      { pos: 0.1, speed: 0.08, col: "#ffffff" },
+      { pos: 0.55, speed: 0.06, col: "#38bdf8" },
+      { pos: 0.82, speed: 0.09, col: "#a78bfa" },
     ];
 
-    // Interaction & Orbit
-    let rotY = 0, rotX = 0;
-    let targetRotY = 0, targetRotX = 0;
+    let rotY = 0.4, rotX = 0.28;
+    let targetRotY = 0.4, targetRotX = 0.28;
     let isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let isWarping = false, warpProgress = 0;
 
@@ -681,37 +684,17 @@
       if (isDragging) {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
-        targetRotY += dx * 0.006;
-        targetRotX += dy * 0.004;
+        targetRotY += dx * 0.005;
+        targetRotX += dy * 0.003;
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
       } else {
         const nx = (e.clientX / W - 0.5) * 2;
         const ny = (e.clientY / H - 0.5) * 2;
-        targetRotY = nx * 0.35;
-        targetRotX = ny * 0.22;
+        targetRotY = 0.4 + nx * 0.18;
+        targetRotX = 0.28 + ny * 0.12;
       }
     }, { passive: true });
-
-    // Touch support for drag
-    canvas.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 1) {
-        isDragging = true;
-        lastMouseX = e.touches[0].clientX;
-        lastMouseY = e.touches[0].clientY;
-      }
-    }, { passive: true });
-    window.addEventListener("touchmove", (e) => {
-      if (isDragging && e.touches.length === 1) {
-        const dx = e.touches[0].clientX - lastMouseX;
-        const dy = e.touches[0].clientY - lastMouseY;
-        targetRotY += dx * 0.006;
-        targetRotX += dy * 0.004;
-        lastMouseX = e.touches[0].clientX;
-        lastMouseY = e.touches[0].clientY;
-      }
-    }, { passive: true });
-    window.addEventListener("touchend", () => { isDragging = false; });
 
     let rafId = 0;
     let lastTime = performance.now();
@@ -720,22 +703,20 @@
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
 
-      // Auto rotation + drag inertia
+      // Slow elegant cinematic rotation
       if (!isDragging) {
-        rotY += 0.012;
+        rotY += 0.0035;
       }
-      rotY += (targetRotY - rotY) * 0.08;
-      rotX += (targetRotX - rotX) * 0.08;
+      rotY += (targetRotY - rotY) * 0.06;
+      rotX += (targetRotX - rotX) * 0.06;
 
       if (isWarping) {
         warpProgress = Math.min(1, warpProgress + dt * 2.2);
-        rotY += 0.12 * (1 + warpProgress * 4);
       }
 
       ctx.clearRect(0, 0, W, H);
 
-      // Camera projection
-      const fov = 750;
+      const fov = 700;
       const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
 
@@ -745,8 +726,8 @@
         const y2 = y3 * cosX - z1 * sinX;
         const z2 = y3 * sinX + z1 * cosX;
 
-        const distance = fov + z2;
-        const scale = distance > 10 ? fov / distance : 0;
+        const dist = fov + z2;
+        const scale = dist > 20 ? fov / dist : 0;
         return {
           sx: cx + x1 * scale,
           sy: cy + y2 * scale,
@@ -755,206 +736,117 @@
         };
       }
 
-      // Update pulses
-      pulses.forEach((p) => {
-        p.t += p.speed * p.dir * dt;
-        if (p.t > 1) p.t = 0;
-        if (p.t < 0) p.t = 1;
-      });
-
-      // Perspective floor grid
-      const floorY = totalHeight * 0.46;
-      ctx.save();
-      ctx.lineWidth = 1;
-      const gridLines = 14;
-      for (let g = -gridLines; g <= gridLines; g++) {
-        const gx = g * 55;
-        const p1 = project(gx, floorY, -600);
-        const p2 = project(gx, floorY, 600);
-        if (p1.scale > 0.1 && p2.scale > 0.1) {
-          const grad = ctx.createLinearGradient(p1.sx, p1.sy, p2.sx, p2.sy);
-          grad.addColorStop(0, "rgba(56, 189, 248, 0)");
-          grad.addColorStop(0.5, "rgba(56, 189, 248, 0.15)");
-          grad.addColorStop(1, "rgba(167, 139, 250, 0)");
-          ctx.strokeStyle = grad;
-          ctx.beginPath();
-          ctx.moveTo(p1.sx, p1.sy);
-          ctx.lineTo(p2.sx, p2.sy);
-          ctx.stroke();
-        }
-      }
-      ctx.restore();
-
-      // Render dust
-      dust.forEach((d) => {
-        d.x += Math.sin(now * 0.001 + d.y) * 0.2;
-        const p = project(d.x, d.y, d.z);
+      // Draw ambient background stars
+      ambientNodes.forEach((a) => {
+        a.y += a.drift;
+        const p = project(a.x, a.y, a.z);
         if (p.scale > 0.1) {
-          const alpha = Math.min(1, Math.max(0.05, (p.z + 500) / 1000)) * d.baseAlpha;
-          ctx.fillStyle = d.col;
-          ctx.globalAlpha = alpha;
+          const depthAlpha = Math.min(0.6, Math.max(0.1, (p.z + 400) / 800)) * a.alpha;
+          ctx.fillStyle = a.col;
+          ctx.globalAlpha = depthAlpha;
           ctx.beginPath();
-          ctx.arc(p.sx, p.sy, d.size * p.scale, 0, Math.PI * 2);
+          ctx.arc(p.sx, p.sy, a.size * p.scale, 0, Math.PI * 2);
           ctx.fill();
         }
       });
-      ctx.globalAlpha = 1;
 
-      // Project all helix vertices
-      const projA = [];
-      const projB = [];
-      const currentRadius = helixRadius * (isWarping ? 1 + warpProgress * 2.5 : 1);
+      // Update ring pulses
+      pulses.forEach((pu) => {
+        pu.pos = (pu.pos + pu.speed * dt) % 1;
+      });
 
-      for (let i = 0; i < PAIRS; i++) {
-        const pA = strandA[i];
-        const pB = strandB[i];
+      // Project ring nodes
+      const expansion = isWarping ? 1 + warpProgress * 2.8 : 1;
+      const projRing = ringNodes.map((n) => {
+        return project(n.x * expansion, n.y * expansion, n.z * expansion);
+      });
 
-        const xA = Math.cos(pA.angle) * currentRadius;
-        const zA = Math.sin(pA.angle) * currentRadius;
-        const yA = pA.y * (isWarping ? 1 + warpProgress * 1.5 : 1);
-
-        const xB = Math.cos(pB.angle) * currentRadius;
-        const zB = Math.sin(pB.angle) * currentRadius;
-        const yB = pB.y * (isWarping ? 1 + warpProgress * 1.5 : 1);
-
-        projA.push(project(xA, yA, zA));
-        projB.push(project(xB, yB, zB));
-      }
-
-      // Collect all visual renderables (rungs, nodes) and sort by Z for correct depth
-      const renderables = [];
-
-      for (let i = 0; i < PAIRS; i++) {
-        const a = projA[i];
-        const b = projB[i];
-        const avgZ = (a.z + b.z) * 0.5;
-
-        // Check pulse proximity
-        const pairFrac = i / (PAIRS - 1);
-        let pulseGlow = 0;
-        let pulseColor = "#38bdf8";
-
-        pulses.forEach((p) => {
-          const dist = Math.abs(p.t - pairFrac);
-          if (dist < 0.07) {
-            const intensity = 1 - dist / 0.07;
-            if (intensity > pulseGlow) {
-              pulseGlow = intensity;
-              pulseColor = p.color;
-            }
-          }
-        });
-
-        renderables.push({
-          type: "rung",
-          a,
-          b,
-          z: avgZ,
-          pulseGlow,
-          pulseColor,
-          index: i,
-        });
-
-        renderables.push({
-          type: "nodeA",
-          p: a,
-          z: a.z,
-          pulseGlow,
-          index: i,
-        });
-
-        renderables.push({
-          type: "nodeB",
-          p: b,
-          z: b.z,
-          pulseGlow,
-          index: i,
-        });
-      }
-
-      // Sort back-to-front (lowest Z first, highest Z in front)
-      renderables.sort((r1, r2) => r1.z - r2.z);
-
-      // Draw continuous helix strands first
+      // Draw subtle orbital ring links
       ctx.save();
-      for (let strandIdx = 0; strandIdx < 2; strandIdx++) {
-        const pts = strandIdx === 0 ? projA : projB;
-        const col = strandIdx === 0 ? "#38bdf8" : "#f472b6";
+      for (let i = 0; i < RING_COUNT; i++) {
+        const next = (i + 1) % RING_COUNT;
+        const p1 = projRing[i];
+        const p2 = projRing[next];
 
-        for (let i = 0; i < pts.length - 1; i++) {
-          const p1 = pts[i];
-          const p2 = pts[i + 1];
-          const midZ = (p1.z + p2.z) * 0.5;
-          const alpha = Math.min(0.95, Math.max(0.15, (midZ + 350) / 700));
+        const avgZ = (p1.z + p2.z) * 0.5;
+        const lineAlpha = Math.min(0.35, Math.max(0.08, (avgZ + 400) / 800));
 
-          ctx.strokeStyle = col;
-          ctx.globalAlpha = alpha;
-          ctx.lineWidth = Math.max(1, 2.4 * ((p1.scale + p2.scale) * 0.5));
+        // Subtle gradient filament
+        const grad = ctx.createLinearGradient(p1.sx, p1.sy, p2.sx, p2.sy);
+        grad.addColorStop(0, "rgba(56, 189, 248, " + (lineAlpha * 0.9) + ")");
+        grad.addColorStop(1, "rgba(167, 139, 250, " + (lineAlpha * 0.6) + ")");
+
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = Math.max(0.8, 1.4 * ((p1.scale + p2.scale) * 0.5));
+        ctx.beginPath();
+        ctx.moveTo(p1.sx, p1.sy);
+        ctx.lineTo(p2.sx, p2.sy);
+        ctx.stroke();
+
+        // Cross-lattice cords between nearby ring points
+        if (i % 3 === 0) {
+          const chord = (i + 6) % RING_COUNT;
+          const pChord = projRing[chord];
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.06)";
+          ctx.lineWidth = 0.8;
           ctx.beginPath();
           ctx.moveTo(p1.sx, p1.sy);
-          ctx.lineTo(p2.sx, p2.sy);
+          ctx.lineTo(pChord.sx, pChord.sy);
           ctx.stroke();
         }
       }
       ctx.restore();
 
-      // Draw sorted rungs & nodes
-      renderables.forEach((item) => {
-        if (item.type === "rung") {
-          const { a, b, pulseGlow, pulseColor } = item;
-          const alpha = Math.min(0.88, Math.max(0.14, (item.z + 400) / 800));
-          ctx.save();
-          ctx.globalAlpha = alpha;
-          ctx.lineWidth = Math.max(1, 1.8 * item.a.scale);
+      // Render traveling pulse telemetry along ring
+      pulses.forEach((pu) => {
+        const floatIdx = pu.pos * RING_COUNT;
+        const i1 = Math.floor(floatIdx);
+        const i2 = (i1 + 1) % RING_COUNT;
+        const t = floatIdx - i1;
 
-          if (pulseGlow > 0.05) {
-            ctx.strokeStyle = pulseColor;
-            ctx.shadowColor = pulseColor;
-            ctx.shadowBlur = 15 * pulseGlow;
-            ctx.globalAlpha = Math.min(1, alpha + pulseGlow * 0.6);
-            ctx.lineWidth = Math.max(1.8, 3.2 * item.a.scale * (1 + pulseGlow * 0.5));
-          } else {
-            const grad = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
-            grad.addColorStop(0, "rgba(56, 189, 248, 0.85)");
-            grad.addColorStop(0.5, "rgba(167, 139, 250, 0.55)");
-            grad.addColorStop(1, "rgba(244, 114, 182, 0.85)");
-            ctx.strokeStyle = grad;
-          }
+        const p1 = projRing[i1];
+        const p2 = projRing[i2];
+        const px = p1.sx + (p2.sx - p1.sx) * t;
+        const py = p1.sy + (p2.sy - p1.sy) * t;
+        const pscale = p1.scale * (1 - t) + p2.scale * t;
 
-          ctx.beginPath();
-          ctx.moveTo(a.sx, a.sy);
-          ctx.lineTo(b.sx, b.sy);
-          ctx.stroke();
-          ctx.restore();
-        } else if (item.type === "nodeA" || item.type === "nodeB") {
-          const { p, pulseGlow } = item;
-          const isA = item.type === "nodeA";
-          const baseColor = isA ? "#38bdf8" : "#f472b6";
-          const radius = Math.max(2, 4.4 * p.scale * (1 + pulseGlow * 0.4));
-          const alpha = Math.min(1, Math.max(0.2, (p.z + 400) / 800));
+        ctx.save();
+        ctx.fillStyle = pu.col;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.arc(px, py, 3.2 * pscale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
 
-          ctx.save();
-          ctx.globalAlpha = alpha;
+      // Render nodes on the ring
+      projRing.forEach((p, idx) => {
+        const n = ringNodes[idx];
+        const alpha = Math.min(0.9, Math.max(0.25, (p.z + 400) / 800));
+        const r = (n.core ? 4.2 : 2.8) * p.scale;
 
-          // Outer bloom
-          const glowRadius = radius * (pulseGlow > 0.1 ? 3.4 : 2.2);
-          const grad = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, glowRadius);
-          grad.addColorStop(0, baseColor);
-          grad.addColorStop(0.4, isA ? "rgba(56, 189, 248, 0.4)" : "rgba(244, 114, 182, 0.4)");
-          grad.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(p.sx, p.sy, glowRadius, 0, Math.PI * 2);
-          ctx.fill();
+        ctx.save();
+        ctx.globalAlpha = alpha;
 
-          // Core hot spot
-          ctx.fillStyle = "#ffffff";
-          ctx.beginPath();
-          ctx.arc(p.sx, p.sy, radius * 0.55, 0, Math.PI * 2);
-          ctx.fill();
+        // Soft halo
+        const haloR = r * (n.core ? 2.8 : 1.8);
+        const grad = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, haloR);
+        grad.addColorStop(0, n.col);
+        grad.addColorStop(0.5, "rgba(56, 189, 248, 0.25)");
+        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, haloR, 0, Math.PI * 2);
+        ctx.fill();
 
-          ctx.restore();
-        }
+        // Center sharp core
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, r * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
       });
 
       rafId = requestAnimationFrame(render);

@@ -414,38 +414,26 @@ def sidebar(nav: tuple, current_id: Optional[str] = None) -> str:
 
 
 def splash_html() -> str:
-    return f"""<div id="splash" class="splash-screen" role="dialog" aria-modal="true" aria-label="GemmaMorph 3D Welcome">
+    return f"""<div id="splash" class="splash-screen" role="dialog" aria-modal="true" aria-label="GemmaMorph Welcome">
   <canvas id="splash-3d-canvas" class="splash-3d-canvas"></canvas>
-  <div class="splash-3d-hud">
-    <span class="splash-3d-pill"><i class="dot ok"></i> 3D GENETIC HELIX TOPOLOGY</span>
-    <span class="splash-3d-hint">DRAG TO ORBIT · SCROLL TO ZOOM</span>
-  </div>
+  <div class="splash-vignette"></div>
   <div class="splash-content">
     <div class="splash-emblem-wrap">
       <div class="splash-orb-glow"></div>
       <div class="splash-ring ring-1"></div>
       <div class="splash-ring ring-2"></div>
-      <div class="splash-ring ring-3"></div>
       <div class="splash-glyph">{LOGO}</div>
     </div>
-    <div class="splash-kicker">Autonomous Dependency Resilience Engine</div>
+    <div class="splash-kicker">Dependency Resilience &amp; Exit Engine</div>
     <h1 class="splash-title">GEMMAMORPH</h1>
     <p class="splash-tagline">Gemma 4 proposes. <span class="splash-glow-text">Your test suite decides.</span></p>
-    
-    <div class="splash-chips">
-      <span class="sp-chip">AST Usage Tracer</span>
-      <span class="sp-sep">&bull;</span>
-      <span class="sp-chip">Gemma 4 Synthesis</span>
-      <span class="sp-sep">&bull;</span>
-      <span class="sp-chip">Isolated Sandbox Rehearsal</span>
-    </div>
 
     <div class="splash-cta">
-      <button type="button" id="splash-enter-btn" class="splash-btn" aria-label="Enter Command Interface">
+      <button type="button" id="splash-enter-btn" class="splash-btn" aria-label="Launch Mission Control">
         <span class="splash-key-badge">ENTER ↵</span>
-        <span class="splash-btn-label">INITIALIZE COMMAND INTERFACE</span>
+        <span class="splash-btn-label">LAUNCH MISSION CONTROL</span>
       </button>
-      <div class="splash-hint">Press <kbd class="splash-kbd">ENTER</kbd> or click to enter mission control</div>
+      <div class="splash-hint">Press <kbd class="splash-kbd">ENTER</kbd> or click to initialize command interface</div>
     </div>
   </div>
 </div>"""
