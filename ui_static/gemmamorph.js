@@ -602,7 +602,7 @@
     };
   }
 
-  /* --------------------------------- 3D Cyber Constellation Splash Engine */
+  /* --------------------------------- 3D Cosmic Constellation Splash Engine */
   function initSplash3D(canvas) {
     if (!canvas) return null;
     const ctx = canvas.getContext("2d");
@@ -617,60 +617,139 @@
       canvas.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       cx = W * 0.5;
-      cy = H * 0.48;
+      cy = H * 0.5;
     }
     resize();
     window.addEventListener("resize", resize, { passive: true });
 
-    // Orbital Halo nodes that frame the perimeter (leaving center clean)
-    const RING_COUNT = 44;
-    const ringNodes = [];
-    const rx = Math.min(W * 0.44, 520);
-    const rz = Math.min(W * 0.38, 450);
-
-    for (let i = 0; i < RING_COUNT; i++) {
-      const th = (i / RING_COUNT) * Math.PI * 2;
-      const y = Math.sin(th * 3) * 65 + (Math.sin(th * 2) * 30);
-      ringNodes.push({
-        x: Math.cos(th) * rx,
-        y: y,
-        z: Math.sin(th) * rz,
-        baseTh: th,
-        size: 3 + Math.random() * 2,
-        core: i % 4 === 0,
-        col: i % 3 === 0 ? "#38bdf8" : i % 5 === 0 ? "#a78bfa" : "#7dd3fc",
-      });
-    }
-
-    // Ambient floating star dust strictly OUTSIDE center zone
-    const AMBIENT_COUNT = 60;
-    const ambientNodes = [];
-    while (ambientNodes.length < AMBIENT_COUNT) {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 360 + Math.random() * (Math.max(W, H) * 0.45);
-      const x = Math.cos(angle) * dist;
-      const y = (Math.random() - 0.5) * H * 0.85;
-      const z = Math.sin(angle) * dist * 0.8;
-      // Skip anything entering the center reading box
-      if (Math.abs(x) < 320 && Math.abs(y) < 180) continue;
-      ambientNodes.push({
-        x, y, z,
-        size: 1 + Math.random() * 1.8,
-        col: Math.random() > 0.5 ? "#38bdf8" : "#94a3b8",
-        alpha: 0.2 + Math.random() * 0.4,
-        drift: (Math.random() - 0.5) * 0.2,
-      });
-    }
-
-    // Telemetry sparks traveling along the ring
-    const pulses = [
-      { pos: 0.1, speed: 0.08, col: "#ffffff" },
-      { pos: 0.55, speed: 0.06, col: "#38bdf8" },
-      { pos: 0.82, speed: 0.09, col: "#a78bfa" },
+    // Color definitions matching the cosmic reference
+    const COLORS = [
+      { col: "#38bdf8", glow: "rgba(56, 189, 248, 0.8)", glowFade: "rgba(56, 189, 248, 0.25)", rgba: "rgba(56, 189, 248, " },
+      { col: "#22d3ee", glow: "rgba(34, 211, 238, 0.8)", glowFade: "rgba(34, 211, 238, 0.25)", rgba: "rgba(34, 211, 238, " },
+      { col: "#2dd4bf", glow: "rgba(45, 212, 191, 0.8)", glowFade: "rgba(45, 212, 191, 0.25)", rgba: "rgba(45, 212, 191, " },
+      { col: "#34d399", glow: "rgba(52, 211, 153, 0.8)", glowFade: "rgba(52, 211, 153, 0.25)", rgba: "rgba(52, 211, 153, " },
+      { col: "#c084fc", glow: "rgba(192, 132, 252, 0.8)", glowFade: "rgba(192, 132, 252, 0.25)", rgba: "rgba(192, 132, 252, " },
+      { col: "#a855f7", glow: "rgba(168, 85, 247, 0.8)", glowFade: "rgba(168, 85, 247, 0.25)", rgba: "rgba(168, 85, 247, " },
+      { col: "#f472b6", glow: "rgba(244, 114, 182, 0.8)", glowFade: "rgba(244, 114, 182, 0.25)", rgba: "rgba(244, 114, 182, " },
+      { col: "#fb7185", glow: "rgba(251, 113, 133, 0.8)", glowFade: "rgba(251, 113, 133, 0.25)", rgba: "rgba(251, 113, 133, " }
     ];
 
-    let rotY = 0.4, rotX = 0.28;
-    let targetRotY = 0.4, targetRotX = 0.28;
+    // Seeded pseudo-random for stable, beautiful cluster architecture
+    function pseudoRand(s) {
+      const x = Math.sin(s) * 10000;
+      return x - Math.floor(x);
+    }
+
+    // 5 distinct 3D starburst clusters positioned organically across space
+    const clusterConfigs = [
+      { id: "top-left",  rx: -0.34, ry: -0.28, rz: -30, rays: 16, seed: 101, primaryCol: COLORS[0] }, // Top-left nexus (like screenshot)
+      { id: "mid-right", rx:  0.36, ry:  0.18, rz:  60, rays: 17, seed: 202, primaryCol: COLORS[2] }, // Right starburst (like screenshot)
+      { id: "top-right", rx:  0.30, ry: -0.32, rz: -180, rays: 13, seed: 303, primaryCol: COLORS[4] }, // Deep top-right
+      { id: "bot-left",  rx: -0.38, ry:  0.30, rz:  80, rays: 14, seed: 404, primaryCol: COLORS[6] }, // Bottom-left foreground
+      { id: "far-back",  rx: -0.10, ry: -0.38, rz: -260, rays: 10, seed: 505, primaryCol: COLORS[1] }  // Distant subtle nebula
+    ];
+
+    const clusters = clusterConfigs.map((cfg) => {
+      let s = cfg.seed;
+      const rnd = () => { s += 1.371; return pseudoRand(s); };
+
+      const satellites = [];
+      const rays = [];
+      const links = [];
+
+      // Generate radiating rays in 3D
+      for (let i = 0; i < cfg.rays; i++) {
+        const theta = (i / cfg.rays) * Math.PI * 2 + (rnd() - 0.5) * 0.25;
+        const phi = (rnd() - 0.5) * 0.9; // 3D elevation tilt
+        const dist = 70 + rnd() * 150;
+        const color = COLORS[Math.floor(rnd() * COLORS.length)];
+
+        // Compute 3D direction vector
+        const cosP = Math.cos(phi);
+        const dirX = Math.cos(theta) * cosP;
+        const dirY = Math.sin(theta) * cosP;
+        const dirZ = Math.sin(phi);
+
+        // Check if this ray is a "bead train" (pearl string as seen in reference image)
+        const isBeadTrain = (i % 5 === 1);
+        const trainSteps = isBeadTrain ? [0.35, 0.55, 0.75, 1.0] : [1.0];
+
+        let lastNodeIdx = null;
+        trainSteps.forEach((step, stepIdx) => {
+          const nodeDist = dist * step;
+          const nodeSize = (step === 1.0) ? (2.8 + rnd() * 1.8) : (1.8 + rnd() * 1.0);
+          const nodeCol = isBeadTrain ? cfg.primaryCol : color;
+
+          const nIdx = satellites.length;
+          satellites.push({
+            dx: dirX * nodeDist,
+            dy: dirY * nodeDist,
+            dz: dirZ * nodeDist,
+            size: nodeSize,
+            col: nodeCol.col,
+            glow: nodeCol.glow,
+            glowFade: nodeCol.glowFade,
+            colRgba: nodeCol.rgba,
+            pulseOffset: rnd() * Math.PI * 2,
+            isTip: step === 1.0,
+            rayIdx: i
+          });
+
+          if (stepIdx === 0) {
+            // First bead links to hub
+            rays.push({ satIdx: nIdx, color: nodeCol });
+          } else if (lastNodeIdx !== null) {
+            // Consecutive beads link together
+            links.push({ from: lastNodeIdx, to: nIdx, color: nodeCol });
+          }
+          lastNodeIdx = nIdx;
+        });
+
+        // Cross-connect some satellite tips to form constellations
+        if (i > 0 && rnd() > 0.5) {
+          const prevTip = satellites.findIndex((st, idx) => st.isTip && st.rayIdx === i - 1);
+          const currTip = satellites.length - 1;
+          if (prevTip >= 0 && currTip >= 0) {
+            links.push({ from: prevTip, to: currTip, color });
+          }
+        }
+      }
+
+      // Traveling pulse particles along rays
+      const pulses = [
+        { rayIdx: 0, progress: 0.1, speed: 0.25 + rnd() * 0.15 },
+        { rayIdx: Math.floor(cfg.rays * 0.35), progress: 0.5, speed: 0.25 + rnd() * 0.15 },
+        { rayIdx: Math.floor(cfg.rays * 0.7), progress: 0.8, speed: 0.25 + rnd() * 0.15 },
+      ];
+
+      return {
+        cfg,
+        satellites,
+        rays,
+        links,
+        pulses,
+        pulsePhase: rnd() * Math.PI * 2,
+      };
+    });
+
+    // Ambient stars in 3D deep space
+    const ambientStars = [];
+    for (let i = 0; i < 90; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 250 + Math.random() * 850;
+      ambientStars.push({
+        x: Math.cos(angle) * radius,
+        y: (Math.random() - 0.5) * 900,
+        z: (Math.random() - 0.5) * 600,
+        size: 0.8 + Math.random() * 1.6,
+        alpha: 0.2 + Math.random() * 0.5,
+        twinkleSpeed: 0.8 + Math.random() * 2.0,
+        col: Math.random() > 0.4 ? "#38bdf8" : Math.random() > 0.5 ? "#c084fc" : "#ffffff"
+      });
+    }
+
+    let rotY = 0.25, rotX = 0.18;
+    let targetRotY = 0.25, targetRotX = 0.18;
     let isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let isWarping = false, warpProgress = 0;
 
@@ -684,15 +763,15 @@
       if (isDragging) {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
-        targetRotY += dx * 0.005;
+        targetRotY += dx * 0.004;
         targetRotX += dy * 0.003;
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
       } else {
         const nx = (e.clientX / W - 0.5) * 2;
         const ny = (e.clientY / H - 0.5) * 2;
-        targetRotY = 0.4 + nx * 0.18;
-        targetRotX = 0.28 + ny * 0.12;
+        targetRotY = 0.25 + nx * 0.16;
+        targetRotX = 0.18 + ny * 0.10;
       }
     }, { passive: true });
 
@@ -703,147 +782,232 @@
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
 
-      // Slow elegant cinematic rotation
+      // Slow majestic continuous cosmic drift
       if (!isDragging) {
-        rotY += 0.0035;
+        rotY += 0.0016;
       }
-      rotY += (targetRotY - rotY) * 0.06;
-      rotX += (targetRotX - rotX) * 0.06;
+      rotY += (targetRotY - rotY) * 0.05;
+      rotX += (targetRotX - rotX) * 0.05;
 
       if (isWarping) {
-        warpProgress = Math.min(1, warpProgress + dt * 2.2);
+        warpProgress = Math.min(1, warpProgress + dt * 2.4);
       }
 
       ctx.clearRect(0, 0, W, H);
 
-      const fov = 700;
+      const fov = 720;
       const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+      // Warp acceleration multiplier
+      const warpZOffset = isWarping ? warpProgress * 650 : 0;
+      const warpScaleMult = isWarping ? (1 + warpProgress * 2.2) : 1;
 
       function project(x3, y3, z3) {
         const x1 = x3 * cosY - z3 * sinY;
         const z1 = x3 * sinY + z3 * cosY;
         const y2 = y3 * cosX - z1 * sinX;
-        const z2 = y3 * sinX + z1 * cosX;
+        const z2 = y3 * sinX + z1 * cosX - warpZOffset;
 
         const dist = fov + z2;
-        const scale = dist > 20 ? fov / dist : 0;
+        const scale = dist > 20 ? (fov / dist) * warpScaleMult : 0;
         return {
           sx: cx + x1 * scale,
           sy: cy + y2 * scale,
-          scale: Math.max(0.1, scale),
+          scale: Math.max(0.05, scale),
           z: z2,
+          visible: dist > 20
         };
       }
 
-      // Draw ambient background stars
-      ambientNodes.forEach((a) => {
-        a.y += a.drift;
-        const p = project(a.x, a.y, a.z);
-        if (p.scale > 0.1) {
-          const depthAlpha = Math.min(0.6, Math.max(0.1, (p.z + 400) / 800)) * a.alpha;
-          ctx.fillStyle = a.col;
+      // 1. Ambient Background Stars
+      ambientStars.forEach((st, idx) => {
+        const p = project(st.x, st.y, st.z);
+        if (p.visible && p.scale > 0.05) {
+          const twinkle = Math.sin(now * 0.001 * st.twinkleSpeed + idx) * 0.3 + 0.7;
+          const depthAlpha = Math.min(0.65, Math.max(0.08, (p.z + 500) / 1000)) * st.alpha * twinkle;
+          ctx.fillStyle = st.col;
           ctx.globalAlpha = depthAlpha;
           ctx.beginPath();
-          ctx.arc(p.sx, p.sy, a.size * p.scale, 0, Math.PI * 2);
+          ctx.arc(p.sx, p.sy, st.size * p.scale, 0, Math.PI * 2);
           ctx.fill();
         }
       });
 
-      // Update ring pulses
-      pulses.forEach((pu) => {
-        pu.pos = (pu.pos + pu.speed * dt) % 1;
+      // 2. Project all cluster hubs
+      const projectedHubs = clusters.map((cl) => {
+        const hx = cl.cfg.rx * W;
+        const hy = cl.cfg.ry * H;
+        const hz = cl.cfg.rz;
+        const p = project(hx, hy, hz);
+        return { p, cl, hx, hy, hz };
       });
 
-      // Project ring nodes
-      const expansion = isWarping ? 1 + warpProgress * 2.8 : 1;
-      const projRing = ringNodes.map((n) => {
-        return project(n.x * expansion, n.y * expansion, n.z * expansion);
-      });
-
-      // Draw subtle orbital ring links
+      // Inter-cluster faint background filaments
       ctx.save();
-      for (let i = 0; i < RING_COUNT; i++) {
-        const next = (i + 1) % RING_COUNT;
-        const p1 = projRing[i];
-        const p2 = projRing[next];
-
-        const avgZ = (p1.z + p2.z) * 0.5;
-        const lineAlpha = Math.min(0.35, Math.max(0.08, (avgZ + 400) / 800));
-
-        // Subtle gradient filament
-        const grad = ctx.createLinearGradient(p1.sx, p1.sy, p2.sx, p2.sy);
-        grad.addColorStop(0, "rgba(56, 189, 248, " + (lineAlpha * 0.9) + ")");
-        grad.addColorStop(1, "rgba(167, 139, 250, " + (lineAlpha * 0.6) + ")");
-
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = Math.max(0.8, 1.4 * ((p1.scale + p2.scale) * 0.5));
-        ctx.beginPath();
-        ctx.moveTo(p1.sx, p1.sy);
-        ctx.lineTo(p2.sx, p2.sy);
-        ctx.stroke();
-
-        // Cross-lattice cords between nearby ring points
-        if (i % 3 === 0) {
-          const chord = (i + 6) % RING_COUNT;
-          const pChord = projRing[chord];
-          ctx.strokeStyle = "rgba(56, 189, 248, 0.06)";
-          ctx.lineWidth = 0.8;
+      for (let i = 0; i < projectedHubs.length; i++) {
+        const next = (i + 1) % projectedHubs.length;
+        const h1 = projectedHubs[i].p;
+        const h2 = projectedHubs[next].p;
+        if (h1.visible && h2.visible) {
+          const avgZ = (h1.z + h2.z) * 0.5;
+          const alpha = Math.min(0.18, Math.max(0.04, (avgZ + 400) / 800));
+          ctx.strokeStyle = "rgba(56, 189, 248, " + alpha + ")";
+          ctx.lineWidth = 0.7;
           ctx.beginPath();
-          ctx.moveTo(p1.sx, p1.sy);
-          ctx.lineTo(pChord.sx, pChord.sy);
+          ctx.moveTo(h1.sx, h1.sy);
+          ctx.lineTo(h2.sx, h2.sy);
           ctx.stroke();
         }
       }
       ctx.restore();
 
-      // Render traveling pulse telemetry along ring
-      pulses.forEach((pu) => {
-        const floatIdx = pu.pos * RING_COUNT;
-        const i1 = Math.floor(floatIdx);
-        const i2 = (i1 + 1) % RING_COUNT;
-        const t = floatIdx - i1;
+      // 3. Render each cluster (Rays, Links, Satellites, Pulses, Nexus Hub)
+      projectedHubs.forEach(({ p: pHub, cl, hx, hy, hz }) => {
+        if (!pHub.visible) return;
 
-        const p1 = projRing[i1];
-        const p2 = projRing[i2];
-        const px = p1.sx + (p2.sx - p1.sx) * t;
-        const py = p1.sy + (p2.sy - p1.sy) * t;
-        const pscale = p1.scale * (1 - t) + p2.scale * t;
+        // Project all satellites in this cluster
+        const projSats = cl.satellites.map((sat) => {
+          return {
+            sat,
+            proj: project(hx + sat.dx, hy + sat.dy, hz + sat.dz)
+          };
+        });
 
+        // A. Draw Ray Filaments (from Hub to Satellite)
         ctx.save();
-        ctx.fillStyle = pu.col;
-        ctx.shadowColor = "#38bdf8";
-        ctx.shadowBlur = 14;
-        ctx.beginPath();
-        ctx.arc(px, py, 3.2 * pscale, 0, Math.PI * 2);
-        ctx.fill();
+        cl.rays.forEach((ray) => {
+          const ps = projSats[ray.satIdx];
+          if (!ps || !ps.proj.visible) return;
+
+          const pSat = ps.proj;
+          const avgZ = (pHub.z + pSat.z) * 0.5;
+          const depthAlpha = Math.min(0.55, Math.max(0.12, (avgZ + 450) / 900));
+
+          const grad = ctx.createLinearGradient(pHub.sx, pHub.sy, pSat.sx, pSat.sy);
+          grad.addColorStop(0, "rgba(224, 231, 255, " + (0.75 * depthAlpha) + ")");
+          grad.addColorStop(0.2, "rgba(168, 85, 247, " + (0.55 * depthAlpha) + ")");
+          grad.addColorStop(1, ray.color.rgba + (0.45 * depthAlpha) + ")");
+
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = Math.max(0.7, 1.3 * ((pHub.scale + pSat.scale) * 0.5));
+          ctx.beginPath();
+          ctx.moveTo(pHub.sx, pHub.sy);
+          ctx.lineTo(pSat.sx, pSat.sy);
+          ctx.stroke();
+        });
+
+        // B. Draw Satellite-to-Satellite Links
+        cl.links.forEach((lnk) => {
+          const p1 = projSats[lnk.from]?.proj;
+          const p2 = projSats[lnk.to]?.proj;
+          if (!p1 || !p2 || !p1.visible || !p2.visible) return;
+
+          const avgZ = (p1.z + p2.z) * 0.5;
+          const depthAlpha = Math.min(0.40, Math.max(0.08, (avgZ + 450) / 900));
+
+          ctx.strokeStyle = lnk.color.rgba + (0.35 * depthAlpha) + ")";
+          ctx.lineWidth = Math.max(0.6, 1.0 * ((p1.scale + p2.scale) * 0.5));
+          ctx.beginPath();
+          ctx.moveTo(p1.sx, p1.sy);
+          ctx.lineTo(p2.sx, p2.sy);
+          ctx.stroke();
+        });
         ctx.restore();
-      });
 
-      // Render nodes on the ring
-      projRing.forEach((p, idx) => {
-        const n = ringNodes[idx];
-        const alpha = Math.min(0.9, Math.max(0.25, (p.z + 400) / 800));
-        const r = (n.core ? 4.2 : 2.8) * p.scale;
+        // C. Traveling Pulses (Photons gliding along rays)
+        cl.pulses.forEach((pu) => {
+          pu.progress = (pu.progress + pu.speed * dt) % 1;
+          const ray = cl.rays[pu.rayIdx % cl.rays.length];
+          if (!ray) return;
+          const ps = projSats[ray.satIdx]?.proj;
+          if (!ps || !ps.visible) return;
+
+          const t = pu.progress;
+          const px = pHub.sx + (ps.sx - pHub.sx) * t;
+          const py = pHub.sy + (ps.sy - pHub.sy) * t;
+          const pscale = pHub.scale * (1 - t) + ps.scale * t;
+
+          ctx.save();
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = ray.color.col;
+          ctx.shadowBlur = 12 * pscale;
+          ctx.beginPath();
+          ctx.arc(px, py, 2.4 * pscale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+
+        // D. Draw Satellite Nodes (Glowing Beads)
+        projSats.forEach(({ sat, proj }) => {
+          if (!proj.visible) return;
+          const alpha = Math.min(0.95, Math.max(0.2, (proj.z + 450) / 900));
+          const r = sat.size * proj.scale;
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          // Soft Bloom Halo
+          const haloR = r * 3.4;
+          const haloGrad = ctx.createRadialGradient(proj.sx, proj.sy, 0, proj.sx, proj.sy, haloR);
+          haloGrad.addColorStop(0, sat.glow);
+          haloGrad.addColorStop(0.45, sat.glowFade);
+          haloGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = haloGrad;
+          ctx.beginPath();
+          ctx.arc(proj.sx, proj.sy, haloR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Saturated colored dot
+          ctx.fillStyle = sat.col;
+          ctx.beginPath();
+          ctx.arc(proj.sx, proj.sy, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Bright white-hot center core
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(proj.sx, proj.sy, r * 0.42, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        });
+
+        // E. Draw Nexus Hub Core (Central Star with multi-stage corona)
+        const hubPulse = Math.sin(now * 0.002 + cl.pulsePhase) * 0.15 + 0.85;
+        const hubAlpha = Math.min(1.0, Math.max(0.35, (pHub.z + 450) / 900));
+        const hubBaseR = 5.5 * pHub.scale;
 
         ctx.save();
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha = hubAlpha;
 
-        // Soft halo
-        const haloR = r * (n.core ? 2.8 : 1.8);
-        const grad = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, haloR);
-        grad.addColorStop(0, n.col);
-        grad.addColorStop(0.5, "rgba(56, 189, 248, 0.25)");
-        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-        ctx.fillStyle = grad;
+        // Wide cosmic atmospheric glow
+        const wideGlowR = hubBaseR * 6.5 * hubPulse;
+        const wideGrad = ctx.createRadialGradient(pHub.sx, pHub.sy, 0, pHub.sx, pHub.sy, wideGlowR);
+        wideGrad.addColorStop(0, "rgba(168, 85, 247, 0.45)");
+        wideGrad.addColorStop(0.35, "rgba(56, 189, 248, 0.22)");
+        wideGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = wideGrad;
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, haloR, 0, Math.PI * 2);
+        ctx.arc(pHub.sx, pHub.sy, wideGlowR, 0, Math.PI * 2);
         ctx.fill();
 
-        // Center sharp core
+        // Focused inner corona
+        const innerGlowR = hubBaseR * 2.8 * hubPulse;
+        const innerGrad = ctx.createRadialGradient(pHub.sx, pHub.sy, 0, pHub.sx, pHub.sy, innerGlowR);
+        innerGrad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+        innerGrad.addColorStop(0.35, "rgba(192, 132, 252, 0.85)");
+        innerGrad.addColorStop(0.75, "rgba(56, 189, 248, 0.4)");
+        innerGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = innerGrad;
+        ctx.beginPath();
+        ctx.arc(pHub.sx, pHub.sy, innerGlowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // White-hot star core
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, r * 0.6, 0, Math.PI * 2);
+        ctx.arc(pHub.sx, pHub.sy, hubBaseR * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
